@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CANDIDATE
+  EMPLOYER
+  ADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum JobStatus {
+  OPEN
+  CLOSED
+  DRAFT
+}
+
+enum ApplicationStatus {
+  PENDING
+  REVIEWING
+  INTERVIEW
+  REJECTED
+  ACCEPTED
+  WITHDRAWN
+}
+
+enum InterviewType {
+  VIDEO
+  PHONE
+  ONSITE
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  role          UserRole
+  pinfl         String    @unique // State ID - Personal Identification Number
+  passportSeries String   @unique // Passport series (e.g., AA 1234567)
+  isVerified    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  profile       Profile?
+  company       Company?
+  applications  Application[]
+  interviews    Interview[]
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([pinfl])
+}
+
+model Profile {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Locked (State-Verified) Fields - Immutable
+  fullName        String
+  birthDate       DateTime
+  gender          Gender
+  address         String
+  educationHistory Json     // Array of { institution, degree, field, year, verified }
+  workHistory     Json     // Array of { company, position, startDate, endDate, verified }
+  
+  // Editable Fields
+  phoneNumber     String?
+  softSkills      String[]  @default([])
+  portfolioLinks  Json?     // Array of { label, url }
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Company {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name            String
+  taxId           String    @unique // STIR - Tax ID (Soliq tizimi)
+  address         String
+  industry        String
+  website         String?
+  description     String?
+  logoUrl         String?
+  isVerified      Boolean   @default(false)
+  verifiedAt     DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  jobs            Job[]
+
+  @@index([taxId])
+  @@index([industry])
+}
+
+model Job {
+  id              String    @id @default(cuid())
+  companyId        String
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String
+  requirements    String[]  @default([])
+  salaryMin       Int?
+  salaryMax       Int?
+  currency        String    @default("UZS")
+  location        String
+  jobType         String    @default("full-time") // full-time, part-time, contract
+  status          JobStatus @default(OPEN)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  closedAt        DateTime?
+
+  applications    Application[]
+
+  @@index([companyId])
+  @@index([status])
+  @@index([location])
+}
+
+model Application {
+  id              String            @id @default(cuid())
+  jobId           String
+  job             Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId     String
+  candidate       User              @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  
+  status          ApplicationStatus @default(PENDING)
+  matchScore      Float?
+  coverLetter     String?
+  
+  appliedAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  interviews      Interview[]
+
+  @@unique([jobId, candidateId]) // One application per job per candidate
+  @@index([jobId])
+  @@index([candidateId])
+  @@index([status])
+}
+
+model Interview {
+  id              String          @id @default(cuid())
+  applicationId   String
+  application     Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  candidateId     String
+  candidate       User            @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  
+  scheduledAt     DateTime
+  duration        Int             @default(60) // minutes
+  type            InterviewType  @default(VIDEO)
+  status          InterviewStatus @default(SCHEDULED)
+  meetingLink     String?
+  location        String?
+  notes           String?
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([candidateId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model AuditLog {
+  id              String    @id @default(cuid())
+  userId          String?
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  action          String    // e.g., "LOGIN", "CREATE_VACANCY", "VERIFY_COMPANY"
+  entityType      String    // e.g., "USER", "COMPANY", "JOB", "APPLICATION"
+  entityId        String
+  details         Json?     // Additional details
+  
+  ipAddress       String?
+  userAgent       String?
+  
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id              String    @id @default(cuid())
+  userId          String
+  
+  title           String
+  message         String
+  type            String    @default("info") // info, success, warning, error
+  
+  isRead          Boolean   @default(false)
+  readAt          DateTime?
+  
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model AIConfig {
+  id                      String    @id @default("default")
+  
+  matchSensitivity        Int       @default(75) // 0-100
+  minMatchScore           Int       @default(60) // Minimum score to show
+  maxCandidatesPerJob     Int       @default(50)
+  automatedVerification   Boolean   @default(true)
+  modelVersion            String    @default("v2.4.1")
+  
+  updatedAt               DateTime  @updatedAt
+}
