@@ -1,11 +1,46 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+export interface ApiError {
+  message: string;
+  code?: string;
+  status?: number;
+}
+
 const api = axios.create({
-  baseURL: 'http://localhost:3001/api',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000,
 });
+
+let isOfflineMode = false;
+let offlineCallback: ((isOffline: boolean) => void) | null = null;
+
+export function setOfflineModeCallback(callback: (isOffline: boolean) => void) {
+  offlineCallback = callback;
+}
+
+const handleOffline = () => {
+  if (!isOfflineMode && offlineCallback) {
+    isOfflineMode = true;
+    offlineCallback(true);
+  }
+};
+
+const handleOnline = () => {
+  if (isOfflineMode && offlineCallback) {
+    isOfflineMode = false;
+    offlineCallback(false);
+  }
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+}
 
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
@@ -21,16 +56,75 @@ api.interceptors.request.use(
 );
 
 api.interceptors.response.use(
-  (response) => response,
-  (error: AxiosError) => {
-    if (error.response?.status === 401) {
+  (response) => {
+    handleOnline();
+    return response;
+  },
+  (error: AxiosError<{ error?: string; message?: string }>) => {
+    if (!error.response) {
+      handleOffline();
+      
+      if (error.code === 'ECONNABORTED') {
+        return Promise.reject({
+          message: 'Request timed out. Please check your connection.',
+          code: 'TIMEOUT',
+          status: 408,
+        } as ApiError);
+      }
+      
+      return Promise.reject({
+        message: 'Unable to connect to server. Please check your internet connection.',
+        code: 'NETWORK_ERROR',
+        status: 0,
+      } as ApiError);
+    }
+
+    const status = error.response.status;
+
+    if (status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login';
       }
+      return Promise.reject({
+        message: 'Session expired. Please log in again.',
+        code: 'UNAUTHORIZED',
+        status: 401,
+      } as ApiError);
     }
-    return Promise.reject(error);
+
+    if (status === 403) {
+      return Promise.reject({
+        message: 'You do not have permission to perform this action.',
+        code: 'FORBIDDEN',
+        status: 403,
+      } as ApiError);
+    }
+
+    if (status === 404) {
+      return Promise.reject({
+        message: 'The requested resource was not found.',
+        code: 'NOT_FOUND',
+        status: 404,
+      } as ApiError);
+    }
+
+    if (status === 500) {
+      return Promise.reject({
+        message: 'Server error. Please try again later.',
+        code: 'SERVER_ERROR',
+        status: 500,
+      } as ApiError);
+    }
+
+    const errorMessage = error.response.data?.error || error.response.data?.message || 'An error occurred';
+    
+    return Promise.reject({
+      message: errorMessage,
+      code: 'UNKNOWN',
+      status,
+    } as ApiError);
   }
 );
 

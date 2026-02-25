@@ -5,6 +5,10 @@ import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { JobCard } from "@/components/JobCard";
 import { matchingApi } from "@/lib/api";
+import { ErrorState, OfflineBanner } from "@/components/ErrorState";
+import { DataPlaceholder } from "@/components/DataPlaceholder";
+import { useOffline } from "@/components/OfflineProvider";
+import { jobs as fallbackJobs } from "@/lib/mockData";
 
 interface JobMatch {
   jobId: string;
@@ -31,9 +35,10 @@ interface JobMatch {
 export default function CandidateMatchesPage() {
   const [matches, setMatches] = useState<JobMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string>("");
   const [matchFilter, setMatchFilter] = useState<number>(0);
   const [locationFilter, setLocationFilter] = useState<string>("All");
+  const { isOffline } = useOffline();
 
   useEffect(() => {
     fetchMatches();
@@ -42,11 +47,36 @@ export default function CandidateMatchesPage() {
   const fetchMatches = async () => {
     try {
       setLoading(true);
+      setError("");
       const response = await matchingApi.getJobMatches();
       setMatches(response.data.data);
     } catch (err: any) {
       console.error("Failed to fetch matches:", err);
-      setError("Failed to load job matches. Please try again.");
+      if (isOffline) {
+        setMatches(fallbackJobs.map(j => ({
+          jobId: j.id,
+          job: {
+            id: j.id,
+            title: j.title,
+            description: j.description,
+            requirements: j.requirements,
+            salaryMin: 0,
+            salaryMax: 0,
+            currency: "USD",
+            location: j.location,
+            company: {
+              id: j.companyId,
+              name: j.company,
+              industry: "Technology",
+            },
+          },
+          score: j.matchScore,
+          matchedSkills: j.skills,
+          missingSkills: [],
+        })));
+      } else {
+        setError(err.message || "Failed to load job matches. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -79,19 +109,17 @@ export default function CandidateMatchesPage() {
           <p className="text-slate-500">Based on your verified profile, these jobs match your skills and experience</p>
         </div>
 
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
-            {error}
-          </div>
-        )}
+        {isOffline && <OfflineBanner />}
 
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <svg className="animate-spin w-8 h-8 text-primary-600" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-          </div>
+        {error && !isOffline ? (
+          <ErrorState 
+            title="Unable to Load Jobs" 
+            message={error}
+            onRetry={fetchMatches}
+            variant="default"
+          />
+        ) : loading ? (
+          <DataPlaceholder rows={4} type="card" />
         ) : (
           <>
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-6">
