@@ -12,7 +12,12 @@ export function Header({ type }: HeaderProps) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isCandidate = type === "candidate";
   const isAdmin = type === "admin";
@@ -40,8 +45,13 @@ export function Header({ type }: HeaderProps) {
       .slice(0, 2);
   };
 
-  const userName = user?.profile?.fullName || user?.company?.name || user?.email?.split("@")[0] || "User";
-  const initials = getInitials(userName);
+  // Prevent hydration mismatch by rendering default until mounted
+  const userName = mounted 
+    ? (user?.profile?.fullName || user?.company?.name || user?.email?.split("@")[0] || "User")
+    : "User";
+  const initials = mounted 
+    ? getInitials(userName)
+    : "U";
 
   return (
     <header className="flex items-center justify-between mb-8">
