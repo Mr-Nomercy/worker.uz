@@ -7,6 +7,7 @@ import jobRoutes from './routes/job.routes';
 import applicationRoutes from './routes/application.routes';
 import adminRoutes from './routes/admin.routes';
 import matchingRoutes from './routes/matching.routes';
+import aiRoutes from './routes/ai.routes';
 
 import { AppError } from './utils/apiResponse';
 
@@ -40,6 +41,7 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/matching', matchingRoutes);
+app.use('/api/matching', aiRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

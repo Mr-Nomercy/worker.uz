@@ -161,6 +161,7 @@ export const applicationsApi = {
 export const matchingApi = {
   getJobMatches: () => api.get('/matching/jobs'),
   getCandidateMatches: (jobId: string) => api.get(`/matching/candidates/${jobId}`),
+  getAIAdvice: (jobId: string, lang?: string) => api.get(`/matching/ai-advice/${jobId}`, { params: { lang } }),
 };
 
 export const adminApi = {
