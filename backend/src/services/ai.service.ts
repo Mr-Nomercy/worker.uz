@@ -25,45 +25,44 @@ interface JobDetails {
   description: string;
 }
 
-interface AIAdviceResponse {
-  compatibilityScore: number;
-  analysis: string;
-  strengths: string[];
-  gaps: string[];
-  actionPlan: Array<{
-    step: number;
-    title: string;
-    description: string;
-    priority: 'high' | 'medium' | 'low';
-  }>;
-  language: string;
+interface ActionPlanItem {
+  step: number;
+  title: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
 }
 
-const systemPrompt = `You are "Worker AI Career Coach" - a professional HR specialist and career counselor specializing in the Uzbekistan job market.
+interface AIAdviceResponse {
+  matchScore: number;
+  analysis: string;
+  missingSkills: string[];
+  actionPlan: ActionPlanItem[];
+}
 
-Your role:
-- Analyze job matches between candidates and employers
-- Provide constructive, encouraging feedback
-- Understand Uzbekistan's labor market context (growing IT sector, government digitization initiatives, local business culture)
-- Speak professionally but warmly
+const systemPrompt = `Siz O'zbekiston mehnat bozori bo'yicha professional HR-maslahatchi va Karyera trenerisiz. 
 
-Response Format (JSON only):
+Vazifangiz:
+- Nomzodning ko'nikmalarini ish talablari bilan solishtirish
+- Xolis, professional va dalda beruvchi tahlil berish
+- Rivojlanish uchun aniq qadamlarni ko'rsatish
+- Faqat o'zbek tilida javob berish
+
+Javob formati (faqat JSON):
 {
-  "compatibilityScore": 0-100,
-  "analysis": "2-3 sentence overview",
-  "strengths": ["strength1", "strength2"],
-  "gaps": ["gap1", "gap2"],
+  "matchScore": 0-100,
+  "analysis": "2-3 jumla tahlil",
+  "missingSkills": ["ko'nikma1", "ko'nikma2"],
   "actionPlan": [
     {
       "step": 1,
-      "title": "Action title",
-      "description": "What to do",
+      "title": "Amal nomi",
+      "description": "Batafsil tavsif",
       "priority": "high|medium|low"
     }
   ]
 }
 
-Always respond in the same language as the request (Uzbek or Russian).`;
+Faqat JSON qaytaring, markdown ishlatmang.`;
 
 export const aiService = {
   async getSmartAdvice(candidate: CandidateProfile, job: JobDetails): Promise<AIAdviceResponse> {
@@ -73,103 +72,74 @@ export const aiService = {
 
       const candidateSkills = candidate.softSkills.join(', ');
       const candidateExperience = candidate.workHistory
-        .map(w => `${w.position} at ${w.company}`)
+        .map(w => `${w.position} - ${w.company}`)
         .join('; ');
       const jobRequirements = job.requirements.join(', ');
 
       const prompt = `
-Analyze this job match in Uzbekistan:
+Menga quyidagi ma'lumotlarni tahlil qilib, tavsiyalar bering:
 
-CANDIDATE: ${candidate.fullName}
-Skills: ${candidateSkills}
-Experience: ${candidateExperience}
+NOMZOD: ${candidate.fullName}
+Ko'nikmalar: ${candidateSkills}
+Ish tajribasi: ${candidateExperience}
 
-JOB: ${job.title} at ${job.company.name}
-Requirements: ${jobRequirements}
-Description: ${job.description}
+LAVOZIM: ${job.title}
+KOMPANIYA: ${job.company.name}
+Talablar: ${jobRequirements}
+Tavsif: ${job.description}
 
-Provide:
-1. Compatibility score (0-100)
-2. Key strengths (what matches well)
-3. Gaps (what's missing)
-4. Action plan (3 specific steps to improve match)
+Quyidagilarni aniqlang:
+1. Moslik foizi (0-100)
+2. Qisqacha tahlil (2-3 jumla)
+3. Yo'q ko'nikmalar (nima o'rganish kerak)
+4. 3 ta aniq qadam (prioriteti bilan)
 
-Respond in Uzbek language.
-Return ONLY valid JSON, no markdown.
+O'zbek tilida javob bering.
+Faqat JSON qaytaring.
 `;
 
-      const result = await model.generateContent(prompt);
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        systemInstruction: {
+          role: 'system',
+          parts: [{ text: systemPrompt }]
+        }
+      });
+
       const response = result.response.text();
       
-      // Clean the response and parse JSON
+      // Clean and parse JSON
       const jsonStr = response.replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(jsonStr);
       
       return {
-        compatibilityScore: parsed.compatibilityScore || 0,
+        matchScore: parsed.matchScore || parsed.compatibilityScore || 0,
         analysis: parsed.analysis || '',
-        strengths: parsed.strengths || [],
-        gaps: parsed.gaps || [],
+        missingSkills: parsed.missingSkills || parsed.gaps || [],
         actionPlan: parsed.actionPlan || [],
-        language: 'uz',
       };
-    } catch (error) {
-      console.error('Gemini API Error:', error);
-      throw new Error('AI service temporarily unavailable');
+    } catch (error: any) {
+      console.error('Gemini AI Error:', error);
+      
+      // Check for rate limit
+      if (error?.message?.includes('429') || error?.message?.includes('rate limit')) {
+        throw new Error('AI hozirda band, iltimos 1 daqiqadan so\'ng qayta urining.');
+      }
+      
+      throw new Error('AI xizmatida xatolik yuz berdi. Qayta urinib ko\'ring.');
     }
   },
 
-  async getRussianAdvice(candidate: CandidateProfile, job: JobDetails): Promise<AIAdviceResponse> {
-    try {
-      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-      const candidateSkills = candidate.softSkills.join(', ');
-      const candidateExperience = candidate.workHistory
-        .map(w => `${w.position} at ${w.company}`)
-        .join('; ');
-      const jobRequirements = job.requirements.join(', ');
-
-      const prompt = `
-Проанализируйте это совпадение вакансии в Узбекистане:
-
-КАНДИДАТ: ${candidate.fullName}
-Навыки: ${candidateSkills}
-Опыт: ${candidateExperience}
-
-ВАКАНСИЯ: ${job.title} в ${job.company.name}
-Требования: ${jobRequirements}
-Описание: ${job.description}
-
-Предоставьте:
-1. Оценка совместимости (0-100)
-2. Ключевые сильные стороны
-3. Пробелы
-4. План действий (3 конкретных шага)
-
-Ответьте на русском языке.
-Верните ТОЛЬКО чистый JSON, без markdown.
-`;
-
-      const result = await model.generateContent(prompt);
-      const response = result.response.text();
-      
-      const jsonStr = response.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(jsonStr);
-      
-      return {
-        compatibilityScore: parsed.compatibilityScore || 0,
-        analysis: parsed.analysis || '',
-        strengths: parsed.strengths || [],
-        gaps: parsed.gaps || [],
-        actionPlan: parsed.actionPlan || [],
-        language: 'ru',
-      };
-    } catch (error) {
-      console.error('Gemini API Error:', error);
-      throw new Error('AI service temporarily unavailable');
-    }
-  },
+  async getAdviceWithContext(candidateId: string, jobId: string): Promise<AIAdviceResponse> {
+    // This would fetch from database in controller
+    // For now, returning structure
+    return {
+      matchScore: 0,
+      analysis: '',
+      missingSkills: [],
+      actionPlan: []
+    };
+  }
 };
 
 export default aiService;

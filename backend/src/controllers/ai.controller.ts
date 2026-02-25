@@ -12,10 +12,9 @@ export const aiController = {
   async getAIAdvice(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { jobId } = req.params;
-      const { lang = 'uz' } = req.query;
       const candidateId = req.user!.id;
 
-      // Get candidate profile
+      // Fetch candidate profile from PostgreSQL
       const candidate = await prisma.user.findUnique({
         where: { id: candidateId },
         include: {
@@ -24,10 +23,10 @@ export const aiController = {
       });
 
       if (!candidate || !candidate.profile) {
-        throw new AppError('Candidate profile not found', 404);
+        throw new AppError('Nomzod profili topilmadi', 404);
       }
 
-      // Get job details
+      // Fetch job details from PostgreSQL
       const job = await prisma.job.findUnique({
         where: { id: jobId },
         include: {
@@ -40,8 +39,18 @@ export const aiController = {
       });
 
       if (!job) {
-        throw new AppError('Job not found', 404);
+        throw new AppError('Bo\'sh ish o\'rni topilmadi', 404);
       }
+
+      // Check if candidate already applied
+      const existingApplication = await prisma.application.findUnique({
+        where: {
+          jobId_candidateId: {
+            jobId,
+            candidateId,
+          },
+        },
+      });
 
       // Prepare data for AI
       const candidateProfile = {
@@ -60,13 +69,23 @@ export const aiController = {
         description: job.description,
       };
 
-      // Get AI advice based on language
-      const advice = lang === 'ru'
-        ? await aiService.getRussianAdvice(candidateProfile, jobDetails)
-        : await aiService.getSmartAdvice(candidateProfile, jobDetails);
+      // Get AI advice
+      const advice = await aiService.getSmartAdvice(candidateProfile, jobDetails);
 
-      res.json(successResponse(advice));
-    } catch (error) {
+      // Return response with additional metadata
+      res.json(successResponse({
+        ...advice,
+        candidate: {
+          name: candidate.profile.fullName,
+        },
+        job: {
+          title: job.title,
+          company: job.company.name,
+        },
+        hasApplied: !!existingApplication,
+      }));
+    } catch (error: any) {
+      console.error('AI Advice Error:', error);
       next(error);
     }
   },
