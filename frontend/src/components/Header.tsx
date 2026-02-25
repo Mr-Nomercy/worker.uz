@@ -1,61 +1,21 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-
-interface UserInfo {
-  name: string;
-  role: string;
-  initials: string;
-}
-
-interface CompanyInfo {
-  name: string;
-  industry: string;
-  initials: string;
-}
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  read: boolean;
-}
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/login/page";
 
 interface HeaderProps {
-  type: "candidate" | "employer";
-  user?: UserInfo;
-  company?: CompanyInfo;
+  type: "candidate" | "employer" | "admin";
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    title: "New Job Match",
-    message: "A new Full Stack Developer position matches your profile",
-    time: "2 hours ago",
-    read: false,
-  },
-  {
-    id: "2",
-    title: "Interview Scheduled",
-    message: "TechCorp Uzbekistan scheduled an interview for tomorrow",
-    time: "5 hours ago",
-    read: false,
-  },
-  {
-    id: "3",
-    title: "Application Update",
-    message: "Your application to Payme Solutions is under review",
-    time: "1 day ago",
-    read: true,
-  },
-];
-
-export function Header({ type, user, company }: HeaderProps) {
-  const isCandidate = type === "candidate";
+export function Header({ type }: HeaderProps) {
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const isCandidate = type === "candidate";
+  const isAdmin = type === "admin";
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -67,7 +27,21 @@ export function Header({ type, user, company }: HeaderProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const unreadCount = mockNotifications.filter(n => !n.read).length;
+  const handleLogout = () => {
+    logout();
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const userName = user?.profile?.fullName || user?.company?.name || user?.email?.split("@")[0] || "User";
+  const initials = getInitials(userName);
 
   return (
     <header className="flex items-center justify-between mb-8">
@@ -76,17 +50,19 @@ export function Header({ type, user, company }: HeaderProps) {
           className={`${
             isCandidate
               ? "w-12 h-12 rounded-full bg-gradient-to-br from-primary-400 to-primary-600"
+              : isAdmin
+              ? "w-12 h-12 rounded-full bg-gradient-to-br from-slate-700 to-slate-900"
               : "w-12 h-12 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900"
           } flex items-center justify-center text-white font-semibold text-lg`}
         >
-          {isCandidate ? user?.initials : company?.initials}
+          {initials}
         </div>
         <div>
           <h2 className="text-lg font-semibold text-slate-800">
-            {isCandidate ? user?.name : company?.name}
+            {userName}
           </h2>
           <p className="text-sm text-slate-500">
-            {isCandidate ? user?.role : company?.industry}
+            {isCandidate ? "Verified Candidate" : isAdmin ? "Administrator" : "Employer"}
           </p>
         </div>
       </div>
@@ -110,42 +86,8 @@ export function Header({ type, user, company }: HeaderProps) {
                   d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
                 />
               </svg>
-              {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              )}
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
             </button>
-
-            {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <h3 className="font-semibold text-slate-800">Notifications</h3>
-                </div>
-                <div className="max-h-80 overflow-y-auto">
-                  {mockNotifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`px-4 py-3 hover:bg-slate-50 transition-colors cursor-pointer border-b border-slate-50 last:border-b-0 ${
-                        !notification.read ? "bg-primary-50/50" : ""
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`w-2 h-2 rounded-full mt-2 ${!notification.read ? "bg-primary-500" : "bg-transparent"}`} />
-                        <div className="flex-1">
-                          <p className="font-medium text-slate-800 text-sm">{notification.title}</p>
-                          <p className="text-sm text-slate-500 mt-0.5">{notification.message}</p>
-                          <p className="text-xs text-slate-400 mt-1">{notification.time}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="px-4 py-3 border-t border-slate-100 bg-slate-50">
-                  <button className="text-sm text-primary-600 font-medium hover:text-primary-700">
-                    View All Notifications
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
         <div className="flex items-center gap-2 bg-verified-light border border-verified-green/30 px-4 py-2 rounded-xl">
@@ -166,6 +108,15 @@ export function Header({ type, user, company }: HeaderProps) {
             {isCandidate ? "Verified by My.Gov.uz" : "Verified Business"}
           </span>
         </div>
+        <button
+          onClick={handleLogout}
+          className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-600"
+          title="Sign Out"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+        </button>
       </div>
     </header>
   );

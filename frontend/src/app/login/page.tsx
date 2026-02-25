@@ -1,21 +1,110 @@
 "use client";
 
-import { useState } from "react";
+import { useState, createContext, useContext, ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { authApi } from "@/lib/api";
+
+interface User {
+  id: string;
+  email: string;
+  role: string;
+  isVerified: boolean;
+  profile?: {
+    fullName: string;
+  };
+  company?: {
+    name: string;
+  };
+}
+
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  isLoading: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('user');
+      return stored ? JSON.parse(stored) : null;
+    }
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const response = await authApi.login(email, password);
+      const { user, token } = response.data.data;
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
+
+      const redirectPath = user.role.toLowerCase();
+      router.push(`/${redirectPath}`);
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    router.push('/login');
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
 
 type Role = "candidate" | "employer" | "admin";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role>("candidate");
+  const [error, setError] = useState("");
 
-  const handleLogin = () => {
+  const credentials = {
+    candidate: { email: "aziz.karimov@example.com", password: "password123" },
+    employer: { email: "hr@techcorp.uz", password: "password123" },
+    admin: { email: "admin@worker.uz", password: "password123" },
+  };
+
+  const handleLogin = async () => {
     setIsLoading(true);
-    setTimeout(() => {
+    setError("");
+    try {
+      const creds = credentials[selectedRole];
+      await login(creds.email, creds.password);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Login failed. Please try again.");
+    } finally {
       setIsLoading(false);
-      router.push(`/${selectedRole}`);
-    }, 2000);
+    }
   };
 
   const roles = [
@@ -53,14 +142,12 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      {/* Background Pattern */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl" />
       </div>
 
       <div className="relative w-full max-w-lg">
-        {/* Logo & Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,11 +158,9 @@ export default function LoginPage() {
           <p className="text-slate-400">Official Employment Platform</p>
         </div>
 
-        {/* Main Card */}
         <div className="bg-white rounded-3xl shadow-2xl p-8">
           <h2 className="text-xl font-semibold text-slate-800 text-center mb-6">Sign in to your account</h2>
 
-          {/* OneID Button */}
           <button
             onClick={handleLogin}
             disabled={isLoading}
@@ -100,6 +185,12 @@ export default function LoginPage() {
             )}
           </button>
 
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+              {error}
+            </div>
+          )}
+
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-200"></div>
@@ -109,7 +200,6 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Role Selection */}
           <div className="space-y-3">
             <p className="text-sm font-medium text-slate-700 mb-3">Select your role</p>
             {roles.map((role) => (
@@ -142,21 +232,23 @@ export default function LoginPage() {
             ))}
           </div>
 
-          {/* Demo Notice */}
           <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
             <div className="flex items-start gap-2">
               <svg className="w-5 h-5 text-amber-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
-                <p className="text-sm font-medium text-amber-800">Demo Mode</p>
-                <p className="text-xs text-amber-700 mt-1">Click "Enter via OneID" to access the selected dashboard with mock data.</p>
+                <p className="text-sm font-medium text-amber-800">Demo Credentials</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  {selectedRole === 'candidate' && 'aziz.karimov@example.com / password123'}
+                  {selectedRole === 'employer' && 'hr@techcorp.uz / password123'}
+                  {selectedRole === 'admin' && 'admin@worker.uz / password123'}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
         <div className="mt-6 text-center">
           <p className="text-sm text-slate-500">
             Powered by <span className="text-primary-400 font-medium">My.Gov.uz</span>
