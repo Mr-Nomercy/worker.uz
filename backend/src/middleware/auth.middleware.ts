@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
 import prisma from '../utils/prisma';
-import { AppError } from '../utils/apiResponse';
+import { ApiError } from '../errors/ApiError';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -35,56 +35,54 @@ export const authenticate = async (
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return next(new AppError('Authentication required', 401));
+      throw ApiError.unauthorized('Authentication required');
     }
 
     const token = authHeader.split(' ')[1];
 
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
-      
-      // Also verify user still exists in database
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.userId },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          isVerified: true,
-        },
-      });
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isVerified: true,
+      },
+    });
 
-      if (!user) {
-        return next(new AppError('User not found or deleted', 401));
-      }
-
-      req.user = {
-        id: user.id,
-        email: user.email,
-        role: user.role as UserRole,
-        isVerified: user.isVerified,
-      };
-
-      next();
-    } catch (jwtError) {
-      if (jwtError instanceof jwt.TokenExpiredError) {
-        return next(new AppError('Token expired', 401));
-      }
-      return next(new AppError('Invalid token', 401));
+    if (!user) {
+      throw ApiError.unauthorized('User not found or deleted');
     }
+
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role as UserRole,
+      isVerified: user.isVerified,
+    };
+
+    next();
   } catch (error) {
-    next(new AppError('Authentication failed', 401));
+    if (error instanceof jwt.TokenExpiredError) {
+      next(ApiError.unauthorized('Token expired'));
+    } else if (error instanceof jwt.JsonWebTokenError) {
+      next(ApiError.unauthorized('Invalid token'));
+    } else {
+      next(error);
+    }
   }
 };
 
 export const authorize = (...roles: UserRole[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return next(new AppError('Authentication required', 401));
+      throw ApiError.unauthorized('Authentication required');
     }
 
     if (!roles.includes(req.user.role)) {
-      return next(new AppError('Insufficient permissions', 403));
+      throw ApiError.forbidden('Insufficient permissions');
     }
 
     next();
@@ -97,7 +95,58 @@ export const requireVerified = (
   next: NextFunction
 ) => {
   if (!req.user?.isVerified) {
-    return next(new AppError('Account verification required', 403));
+    throw ApiError.forbidden('Account verification required');
+  }
+  next();
+};
+
+export const requireRole = (...roles: UserRole[]) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      throw ApiError.unauthorized('Authentication required');
+    }
+
+    if (!roles.includes(req.user.role)) {
+      throw ApiError.forbidden(`Access denied. Required roles: ${roles.join(', ')}`);
+    }
+
+    next();
+  };
+};
+
+export const optionalAuth = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+      
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          isVerified: true,
+        },
+      });
+
+      if (user) {
+        req.user = {
+          id: user.id,
+          email: user.email,
+          role: user.role as UserRole,
+          isVerified: user.isVerified,
+        };
+      }
+    }
+  } catch {
+    // Ignore token errors for optional auth
   }
   next();
 };
