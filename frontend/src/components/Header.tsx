@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { NotificationCenter } from "./NotificationCenter";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 
@@ -32,8 +32,8 @@ export function Header({ type, onMenuClick }: HeaderProps) {
   const isCandidate = type === "candidate";
   const isAdmin = type === "admin";
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
   };
 
   const getInitials = (name: string) => {

@@ -1,93 +1,9 @@
 "use client";
 
-import { useState, createContext, useContext, ReactNode } from "react";
-import { useRouter } from "next/navigation";
-import { authApi } from "@/lib/api";
+import { useAuth as useAuthFromHook, User, RegisterData } from "@/hooks/useAuth";
 
-export interface User {
-  id: string;
-  email: string;
-  role: string;
-  isVerified: boolean;
-  profile?: {
-    fullName: string;
-  };
-  company?: {
-    name: string;
-  };
-}
+export { useAuthFromHook as useAuth, type User, type RegisterData };
 
-interface AuthContextType {
-  user: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-  isLoading: boolean;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const getInitialUser = (): User | null => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const stored = localStorage.getItem('user');
-      if (!stored) return null;
-      const parsed = JSON.parse(stored);
-      if (parsed && typeof parsed === 'object' && 'id' in parsed) {
-        return parsed as User;
-      }
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      return null;
-    } catch {
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      return null;
-    }
-  };
-
-  const [user, setUser] = useState<User | null>(getInitialUser);
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-
-  const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const response = await authApi.login(email, password);
-      const { user, token } = response.data.data;
-      
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      setUser(user);
-
-      const redirectPath = user.role.toLowerCase();
-      router.push(`/${redirectPath}`);
-    } catch (error) {
-      console.error('Login failed:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    router.push('/login');
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
 }

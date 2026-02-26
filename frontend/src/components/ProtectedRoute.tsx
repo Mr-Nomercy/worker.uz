@@ -31,14 +31,15 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
       try {
         const user = JSON.parse(storedUser);
         
-        if (!allowedRoles.includes(user.role)) {
-          const redirectPath = user.role.toLowerCase();
-          router.push(`/${redirectPath}`);
+        if (!user || !user.role || !allowedRoles.includes(user.role)) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          router.push('/login');
           return;
         }
 
         setIsChecking(false);
-      } catch (error) {
+      } catch {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         router.push('/login');

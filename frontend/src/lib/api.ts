@@ -24,6 +24,8 @@ export const ERROR_CODES = {
   TIMEOUT: 'TIMEOUT',
   SERVER_ERROR: 'SERVER_ERROR',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
+  BAD_REQUEST: 'BAD_REQUEST',
+  RATE_LIMITED: 'RATE_LIMITED',
   UNKNOWN: 'UNKNOWN',
 } as const;
 
@@ -138,6 +140,22 @@ api.interceptors.response.use(
         message: error.response.data?.message || 'The requested resource was not found.',
         code: ERROR_CODES.NOT_FOUND,
         status: 404,
+      } as ApiError);
+    }
+
+    if (status === 400) {
+      return Promise.reject({
+        message: error.response.data?.message || 'Invalid request. Please check your input.',
+        code: ERROR_CODES.BAD_REQUEST,
+        status: 400,
+      } as ApiError);
+    }
+
+    if (status === 429) {
+      return Promise.reject({
+        message: 'Too many requests. Please wait a moment and try again.',
+        code: ERROR_CODES.RATE_LIMITED,
+        status: 429,
       } as ApiError);
     }
 

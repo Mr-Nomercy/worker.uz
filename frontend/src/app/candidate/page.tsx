@@ -9,7 +9,7 @@ import { JobCard } from "@/components/JobCard";
 import { JobCardSkeleton, ProfileCardSkeleton } from "@/components/Skeleton";
 import { useProfile } from "@/hooks/useProfile";
 import { useJobs } from "@/hooks/useJobs";
-import { useAuth } from "@/lib/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function CandidatePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);

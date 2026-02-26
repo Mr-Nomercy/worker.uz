@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth, User } from "@/lib/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
+import { ApiError } from "@/lib/api";
 
 type Role = "candidate" | "employer" | "admin";
 

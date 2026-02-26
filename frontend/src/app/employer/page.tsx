@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { MetricsCard } from "@/components/MetricsCard";
@@ -8,42 +8,75 @@ import { VacancyItem } from "@/components/JobCard";
 import { CandidateCard } from "@/components/CandidateCard";
 import { VacancyModal } from "@/components/VacancyModal";
 import { StatsCardSkeleton, CandidateCardSkeleton } from "@/components/Skeleton";
-import { useMockData } from "@/lib/useDashboardData";
-import { currentCompany, companyVacancies, aiCandidates } from "@/lib/mockData";
+import { useJobs } from "@/hooks/useJobs";
+import { useMatching } from "@/hooks/useMatching";
+import { Job, CreateJobData } from "@/hooks/useJobs";
+
+interface JobWithApplicants extends Job {
+  applicants: number;
+}
 
 export default function EmployerPage() {
-  const [vacancies, setVacancies] = useState(companyVacancies);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  const { data: metricsData, isLoading: metricsLoading } = useMockData({
-    activeVacancies: vacancies.filter(v => v.status === "Active").length,
-    totalApplicants: vacancies.reduce((sum, v) => sum + v.applicants, 0),
-    aiCandidatesCount: aiCandidates.length
-  });
+  const { 
+    jobs, 
+    isLoading: jobsLoading, 
+    error: jobsError,
+    fetchJobs, 
+    createJob,
+    clearError: clearJobsError 
+  } = useJobs();
 
-  const { data: candidatesData, isLoading: candidatesLoading } = useMockData(aiCandidates);
+  const { 
+    candidates, 
+    isLoading: candidatesLoading,
+    error: candidatesError,
+    searchCandidates,
+    clearError: clearCandidatesError 
+  } = useMatching();
 
-  const handleAddVacancy = (newVacancy: {
+  useEffect(() => {
+    fetchJobs({ limit: 50 });
+    searchCandidates({ limit: 10 });
+  }, [fetchJobs, searchCandidates]);
+
+  useEffect(() => {
+    if (jobsError) {
+      setLocalError(jobsError.message);
+    } else if (candidatesError) {
+      setLocalError(candidatesError.message);
+    }
+  }, [jobsError, candidatesError]);
+
+  const handleAddVacancy = async (newVacancy: {
     title: string;
     salary: string;
     description: string;
   }) => {
-    const vacancy = {
-      id: `vacancy-${Date.now()}`,
-      title: newVacancy.title,
-      postedDate: "Just now",
-      status: "Active" as const,
-      applicants: 0,
-      salary: newVacancy.salary,
-      description: newVacancy.description,
-    };
-    setVacancies([vacancy, ...vacancies]);
-    setIsModalOpen(false);
+    try {
+      const jobData: CreateJobData = {
+        title: newVacancy.title,
+        description: newVacancy.description,
+        requirements: [],
+        location: newVacancy.salary,
+        salaryMin: parseInt(newVacancy.salary) || undefined,
+        salaryMax: parseInt(newVacancy.salary) || undefined,
+      };
+      await createJob(jobData);
+      setIsModalOpen(false);
+    } catch (err) {
+      setLocalError('Failed to create vacancy');
+    }
   };
 
-  const activeVacancies = metricsData?.activeVacancies || 0;
-  const totalApplicants = metricsData?.totalApplicants || 0;
+  const activeVacancies = jobs.filter(j => j.status === 'Active').length;
+  const totalApplicants = jobs.reduce((sum, j) => sum + (j as unknown as JobWithApplicants).applicants || 0, 0);
+
+  const metricsLoading = jobsLoading;
+  const displayCLoading = candidatesLoading;
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -52,6 +85,18 @@ export default function EmployerPage() {
       <main className="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8 pt-16">
         <div className="max-w-7xl mx-auto">
           <Header type="employer" onMenuClick={() => setSidebarOpen(true)} />
+          
+          {localError && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+              {localError}
+              <button 
+                onClick={() => setLocalError(null)} 
+                className="ml-2 text-red-800 underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           
           {/* Metrics - responsive grid: 1 col on mobile, 3 cols on desktop */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-8">
@@ -85,7 +130,7 @@ export default function EmployerPage() {
                 />
                 <MetricsCard
                   title="AI Recommended Profiles"
-                  value={metricsData?.aiCandidatesCount || 0}
+                  value={candidates.length}
                   color="green"
                   icon={
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -114,16 +159,35 @@ export default function EmployerPage() {
                 </button>
               </div>
               <div className="p-4 space-y-3 max-h-96 overflow-y-auto scrollbar-thin">
-                {vacancies.map((vacancy) => (
-                  <VacancyItem
-                    key={vacancy.id}
-                    title={vacancy.title}
-                    postedDate={vacancy.postedDate}
-                    status={vacancy.status}
-                    applicants={vacancy.applicants}
-                    salary={vacancy.salary}
-                  />
-                ))}
+                {jobsLoading ? (
+                  <>
+                    <div className="animate-pulse flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
+                      <div className="w-12 h-12 bg-slate-200 rounded-lg"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                        <div className="h-3 bg-slate-200 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                  </>
+                ) : jobs.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <p>No vacancies yet</p>
+                    <p className="text-sm mt-1">Post your first vacancy to get started</p>
+                  </div>
+                ) : (
+                  jobs.map((vacancy) => (
+                    <VacancyItem
+                      key={vacancy.id}
+                      title={vacancy.title}
+                      postedDate={new Date(vacancy.createdAt).toLocaleDateString()}
+                      status={vacancy.status as 'Active' | 'Paused' | 'Closed'}
+                      applicants={0}
+                      salary={vacancy.salaryMin && vacancy.salaryMax 
+                        ? `${vacancy.salaryMin} - ${vacancy.salaryMax}` 
+                        : vacancy.location}
+                    />
+                  ))
+                )}
               </div>
             </div>
 
@@ -132,25 +196,30 @@ export default function EmployerPage() {
                 <h3 className="font-semibold text-slate-800">Top AI Candidates for You</h3>
               </div>
               <div className="p-4 space-y-4 max-h-96 overflow-y-auto scrollbar-thin">
-                {candidatesLoading ? (
+                {displayCLoading ? (
                   <>
                     <CandidateCardSkeleton />
                     <CandidateCardSkeleton />
                     <CandidateCardSkeleton />
                   </>
+                ) : candidates.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <p>No candidates found</p>
+                    <p className="text-sm mt-1">Post vacancies to get AI-recommended candidates</p>
+                  </div>
                 ) : (
                   <>
-                    {candidatesData?.map((candidate) => (
+                    {candidates.map((candidate) => (
                       <CandidateCard
                         key={candidate.id}
                         id={candidate.id}
-                        name={candidate.name}
-                        initials={candidate.initials}
-                        role={candidate.role}
-                        location={candidate.location}
-                        skills={candidate.skills}
-                        matchScore={candidate.matchScore}
-                        color={candidate.color}
+                        name={candidate.profile?.fullName || 'Unknown'}
+                        initials={candidate.profile?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                        role={candidate.profile?.skills?.join(', ') || 'No skills listed'}
+                        location={candidate.profile?.address || 'Location not specified'}
+                        skills={candidate.profile?.skills || []}
+                        matchScore={candidate.matchScore || 0}
+                        color="purple"
                       />
                     ))}
                   </>
