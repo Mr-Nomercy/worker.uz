@@ -30,6 +30,7 @@ export const adminController = {
         pendingContactRequests,
         recentUsers,
         skillStats,
+        recentAuditLogs,
       ] = await Promise.all([
         prisma.user.count({ where: { role: 'CANDIDATE' } }),
         prisma.user.count({ where: { role: 'CANDIDATE', isVerified: true } }),
@@ -65,6 +66,13 @@ export const adminController = {
             user: { isVerified: true },
           },
           select: { softSkills: true },
+        }),
+        prisma.auditLog.findMany({
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: { select: { email: true } },
+          },
         }),
       ]);
 
@@ -117,6 +125,15 @@ export const adminController = {
         },
         topSkills,
         recentUsers,
+        recentAuditLogs: recentAuditLogs.map(log => ({
+          id: log.id,
+          action: log.action,
+          entityType: log.entityType,
+          entityId: log.entityId,
+          ipAddress: log.ipAddress,
+          createdAt: log.createdAt,
+          user: log.user,
+        })),
       }));
     } catch (error) {
       next(error);
