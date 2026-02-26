@@ -1,0 +1,120 @@
+{
+  "common": {
+    "login": "Вход",
+    "register": "Регистрация",
+    "logout": "Выйти",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "confirm": "Подтвердить",
+    "reject": "Отклонить",
+    "search": "Поиск",
+    "filter": "Фильтр",
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "success": "Успешно",
+    "warning": "Предупреждение",
+    "noData": "Нет данных",
+    "viewAll": "Смотреть все"
+  },
+  "auth": {
+    "email": "Электронная почта",
+    "password": "Пароль",
+    "phone": "Номер телефона",
+    "forgotPassword": "Забыли пароль?",
+    "noAccount": "Нет аккаунта?",
+    "hasAccount": "Есть аккаунт?",
+    "welcome": "Добро пожаловать",
+    "loginTitle": "Вход в систему",
+    "registerTitle": "Регистрация"
+  },
+  "nav": {
+    "home": "Главная",
+    "dashboard": "Дашборд",
+    "jobs": "Работа",
+    "candidates": "Кандидаты",
+    "applications": "Заявки",
+    "interviews": "Собеседования",
+    "vacancies": "Вакансии",
+    "matches": "Совпадения",
+    "settings": "Настройки",
+    "profile": "Профиль",
+    "cv": "Резюме",
+    "admin": "Админ",
+    "companies": "Компании",
+    "audit": "Аудит"
+  },
+  "dashboard": {
+    "title": "Дашборд",
+    "welcome": "Добро пожаловать",
+    "totalUsers": "Всего пользователей",
+    "verifiedWorkers": "Верифицированные работники",
+    "activeJobs": "Активные вакансии",
+    "totalApplications": "Всего заявок",
+    "recentActivity": "Недавняя активность",
+    "recentUsers": "Новые пользователи"
+  },
+  "jobs": {
+    "title": "Работа",
+    "postJob": "Разместить работу",
+    "jobTitle": "Должность",
+    "salary": "Зарплата",
+    "description": "Описание",
+    "requirements": "Требования",
+    "location": "Место",
+    "apply": "Отправить заявку",
+    "posted": "Опубликовано",
+    "status": "Статус",
+    "active": "Активная",
+    "closed": "Закрытая"
+  },
+  "candidate": {
+    "title": "Кандидат",
+    "skills": "Навыки",
+    "experience": "Опыт",
+    "education": "Образование",
+    "cv": "Резюме",
+    "uploadCV": "Загрузить резюме",
+    "verified": "Верифицирован",
+    "notVerified": "Не верифицирован"
+  },
+  "employer": {
+    "title": "Работодатель",
+    "company": "Компания",
+    "postVacancy": "Разместить вакансию"
+  },
+  "matching": {
+    "contactRequest": "Запрос контакта",
+    "requestSent": "Запрос отправлен",
+    "acceptRequest": "Принять запрос",
+    "rejectRequest": "Отклонить запрос",
+    "viewContact": "Посмотреть контакт",
+    "searchCandidates": "Поиск кандидатов",
+    "noResults": "Ничего не найдено",
+    "topSkills": "Популярные навыки"
+  },
+  "admin": {
+    "title": "Админ панель",
+    "users": "Пользователи",
+    "companies": "Компании",
+    "auditLogs": "Журнал аудита",
+    "security": "Безопасность",
+    "verifyCompany": "Подтвердить компанию",
+    "rejectCompany": "Отклонить компанию"
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "newNotification": "Новое уведомление",
+    "noNotifications": "Нет уведомлений",
+    "markAllRead": "Все прочитано"
+  },
+  "errors": {
+    "notFound": "Не найдено",
+    "unauthorized": "Нет доступа",
+    "serverError": "Ошибка сервера",
+    "networkError": "Ошибка сети"
+  },
+  "footer": {
+    "rights": "Все права защищены",
+    "version": "Версия"
+  }
+}
