@@ -2,24 +2,27 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { LocaleProvider } from "@/components/LocaleProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Worker - Official Employment Platform",
+  title: "Worker - Rasmiy ish platformasi",
   description:
-    "Government-integrated official employment platform with verified CVs and AI-powered job matching",
+    "Davlat integratsiyali rasmiy ish platformasi",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en">
+    <html lang="uz">
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <LocaleProvider>
+          <Providers>{children}</Providers>
+        </LocaleProvider>
       </body>
     </html>
   );

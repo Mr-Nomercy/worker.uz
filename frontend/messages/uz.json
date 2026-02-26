@@ -1,0 +1,120 @@
+{
+  "common": {
+    "login": "Kirish",
+    "register": "Ro'yxatdan o'tish",
+    "logout": "Chiqish",
+    "save": "Saqlash",
+    "cancel": "Bekor qilish",
+    "confirm": "Tasdiqlash",
+    "reject": "Rad etish",
+    "search": "Qidirish",
+    "filter": "Filtrlash",
+    "loading": "Yuklanmoqda...",
+    "error": "Xatolik",
+    "success": "Muvaffaqiyat",
+    "warning": "Ogohlantirish",
+    "noData": "Ma'lumot yo'q",
+    "viewAll": "Barchasini ko'rish"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Parol",
+    "phone": "Telefon raqam",
+    "forgotPassword": "Parolni unutdingizmi?",
+    "noAccount": "Hisobingiz yo'qmi?",
+    "hasAccount": "Hisobingiz bormi?",
+    "welcome": "Xush kelibsiz",
+    "loginTitle": "Tizimga kirish",
+    "registerTitle": "Ro'yxatdan o'tish"
+  },
+  "nav": {
+    "home": "Bosh sahifa",
+    "dashboard": "Dashboard",
+    "jobs": "Ishlar",
+    "candidates": "Nomzodlar",
+    "applications": "Arizalar",
+    "interviews": "Suhbatlar",
+    "vacancies": "Vakansiyalar",
+    "matches": "Mosliklar",
+    "settings": "Sozlamalar",
+    "profile": "Profil",
+    "cv": "Rezyume",
+    "admin": "Admin",
+    "companies": "Kompaniyalar",
+    "audit": "Audit"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Xush kelibsiz",
+    "totalUsers": "Jami foydalanuvchilar",
+    "verifiedWorkers": "Tasdiqlangan ishchilar",
+    "activeJobs": "Faol vakansiyalar",
+    "totalApplications": "Jami arizalar",
+    "recentActivity": "So'nggi faoliyat",
+    "recentUsers": "So'nggi foydalanuvchilar"
+  },
+  "jobs": {
+    "title": "Ishlar",
+    "postJob": "Ish e'lon qilish",
+    "jobTitle": "Lavozim",
+    "salary": "Maosh",
+    "description": "Tavsif",
+    "requirements": "Talablar",
+    "location": "Manzil",
+    "apply": "Ariza topshirish",
+    "posted": "Joylashtirilgan",
+    "status": "Holat",
+    "active": "Faol",
+    "closed": "Yopilgan"
+  },
+  "candidate": {
+    "title": "Nomzod",
+    "skills": "Ko'nikmalar",
+    "experience": "Tajriba",
+    "education": "Ma'lumot",
+    "cv": "Rezyume",
+    "uploadCV": "Rezyume yuklash",
+    "verified": "Tasdiqlangan",
+    "notVerified": "Tasdiqlanmagan"
+  },
+  "employer": {
+    "title": "Ish beruvchi",
+    "company": "Kompaniya",
+    "postVacancy": "Vakansiya joylashtirish"
+  },
+  "matching": {
+    "contactRequest": "Bog'lanish so'rovi",
+    "requestSent": "So'rov yuborildi",
+    "acceptRequest": "So'rovni qabul qilish",
+    "rejectRequest": "So'rovni rad etish",
+    "viewContact": "Kontaktni ko'rish",
+    "searchCandidates": "Nomzodlarni qidirish",
+    "noResults": "Hech qanday natija topilmadi",
+    "topSkills": "Top ko'nikmalar"
+  },
+  "admin": {
+    "title": "Admin panel",
+    "users": "Foydalanuvchilar",
+    "companies": "Kompaniyalar",
+    "auditLogs": "Audit jurnali",
+    "security": "Xavfsizlik",
+    "verifyCompany": "Kompaniyani tasdiqlash",
+    "rejectCompany": "Kompaniyani rad etish"
+  },
+  "notifications": {
+    "title": "Bildirishnomalar",
+    "newNotification": "Yangi bildirishnoma",
+    "noNotifications": "Bildirishnomalar yo'q",
+    "markAllRead": "Hammasini o'qilgan"
+  },
+  "errors": {
+    "notFound": "Topilmadi",
+    "unauthorized": "Ruxsat yo'q",
+    "serverError": "Server xatoligi",
+    "networkError": "Tarmoq xatoligi"
+  },
+  "footer": {
+    "rights": "Barcha huquqlar himoyalangan",
+    "version": "Versiya"
+  }
+}

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { NotificationCenter } from "./NotificationCenter";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 interface HeaderProps {
   type: "candidate" | "employer" | "admin";
@@ -86,6 +87,7 @@ export function Header({ type, onMenuClick }: HeaderProps) {
         </div>
       </div>
       <div className="flex items-center gap-2 sm:gap-4">
+        <LanguageSwitcher />
         {(isCandidate || type === "employer") && (
           <NotificationCenter userId={user?.id} />
         )}
