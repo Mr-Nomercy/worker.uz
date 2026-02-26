@@ -5,6 +5,7 @@ import matchingService from '../services/matching.service';
 import { successResponse, AppError } from '../utils/apiResponse';
 import { AuthRequest } from '../middleware/auth.middleware';
 import prisma from '../utils/prisma';
+import { createAuditLogFromRequest, AuditActions } from '../utils/auditLog';
 
 const router = Router();
 
@@ -140,6 +141,14 @@ router.get(
           totalPages: Math.ceil(total / limitNum)
         }
       }));
+
+      await createAuditLogFromRequest(
+        req,
+        AuditActions.SEARCH_CANDIDATES,
+        'SEARCH',
+        `page:${pageNum},skills:${skills || 'none'},verified:${verifiedOnlyBool}`,
+        { resultsCount: total, filters: { skills, location, verifiedOnly: verifiedOnlyBool } }
+      );
     } catch (error) {
       next(error);
     }
@@ -284,6 +293,14 @@ router.get(
         },
         note: 'Bu ma\'lumotlar faqat tasdiqlangan so\'rov orqali ko\'rinadi.'
       }));
+
+      await createAuditLogFromRequest(
+        req,
+        AuditActions.REVEAL_PHONE,
+        'CANDIDATE',
+        candidateId,
+        { candidateName: candidate.profile.fullName }
+      );
     } catch (error) {
       next(error);
     }
@@ -413,6 +430,14 @@ router.post(
         request: updatedRequest,
         message: 'So\'rov qabul qilindi. Endi kontaktlaringiz almashish mumkin.'
       }));
+
+      await createAuditLogFromRequest(
+        req,
+        AuditActions.CONTACT_REQUEST_ACCEPT,
+        'CONTACT_REQUEST',
+        requestId,
+        { employerId: contactRequest.employerId }
+      );
     } catch (error) {
       next(error);
     }

@@ -44,6 +44,15 @@ interface DashboardData {
     profile?: { fullName: string };
     company?: { name: string; isVerified: boolean };
   }[];
+  recentAuditLogs?: {
+    id: string;
+    action: string;
+    entityType: string;
+    entityId: string;
+    ipAddress: string;
+    createdAt: string;
+    user?: { email: string };
+  }[];
 }
 
 export default function AdminDashboardPage() {
@@ -285,6 +294,62 @@ export default function AdminDashboardPage() {
           </table>
         </div>
       </div>
+
+      {/* Security Audit Logs */}
+      {data.recentAuditLogs && data.recentAuditLogs.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-slate-800">Xavfsizlik Jurnali</h3>
+            <a href="/admin/audit" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+              Barchasini ko'rish →
+            </a>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Vaqt</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Foydalanuvchi</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Amal</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Ob'ekt</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">IP</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.recentAuditLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 text-sm text-slate-500">
+                      {new Date(log.createdAt).toLocaleString('uz-UZ')}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-700">
+                      {log.user?.email || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        log.action.includes('REVEAL') 
+                          ? 'bg-red-100 text-red-700'
+                          : log.action.includes('SEARCH')
+                          ? 'bg-amber-100 text-amber-700'
+                          : log.action.includes('CONTACT')
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {log.action}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-500">
+                      {log.entityType}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-400 font-mono">
+                      {log.ipAddress || 'N/A'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
