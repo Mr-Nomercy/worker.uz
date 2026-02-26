@@ -9,6 +9,9 @@ const router = Router();
 router.use(authenticate);
 router.use(authorize(UserRole.ADMIN));
 
+// Dashboard
+router.get('/dashboard', adminController.getDashboardStats);
+
 // Metrics
 router.get('/metrics', adminController.getMetrics);
 

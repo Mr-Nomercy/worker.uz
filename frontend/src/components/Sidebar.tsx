@@ -14,7 +14,7 @@ interface NavItem {
 }
 
 interface SidebarProps {
-  type: "candidate" | "employer";
+  type: "candidate" | "employer" | "admin";
   isOpen?: boolean;
   onClose?: () => void;
 }
