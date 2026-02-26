@@ -223,6 +223,74 @@ router.get(
 );
 
 /**
+ * PROTECTED ENDPOINT - Get Contact Details via Contact Request
+ * Only accessible if employer has an ACCEPTED contact request
+ */
+router.get(
+  '/candidate-contact-by-request/:candidateId',
+  authenticate,
+  authorize(UserRole.EMPLOYER),
+  async (req: AuthRequest, res, next) => {
+    try {
+      const employerId = req.user!.id;
+      const { candidateId } = req.params;
+
+      const acceptedRequest = await prisma.contactRequest.findFirst({
+        where: {
+          employerId,
+          candidateId,
+          status: 'ACCEPTED'
+        }
+      });
+
+      if (!acceptedRequest) {
+        return res.json(successResponse({
+          hasAccess: false,
+          message: 'Bu nomzodning kontaktlarini ko\'rish uchun avval so\'rov yuboring va u tasdiqlansin.'
+        }));
+      }
+
+      const candidate = await prisma.user.findUnique({
+        where: { id: candidateId },
+        select: {
+          id: true,
+          isVerified: true,
+          profile: {
+            select: {
+              fullName: true,
+              phoneNumber: true,
+              softSkills: true,
+              portfolioLinks: true,
+              cvUrl: true,
+            }
+          }
+        }
+      });
+
+      if (!candidate?.profile) {
+        throw new AppError('Nomzod topilmadi', 404);
+      }
+
+      res.json(successResponse({
+        hasAccess: true,
+        candidateId: candidate.id,
+        isVerified: candidate.isVerified,
+        contact: {
+          fullName: candidate.profile.fullName,
+          phoneNumber: candidate.profile.phoneNumber,
+          skills: candidate.profile.softSkills,
+          portfolioLinks: candidate.profile.portfolioLinks,
+          cvUrl: candidate.profile.cvUrl,
+        },
+        note: 'Bu ma\'lumotlar faqat tasdiqlangan so\'rov orqali ko\'rinadi.'
+      }));
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
  * REQUEST CONTACT - Employer requests to see candidate's contact info
  */
 router.post(
