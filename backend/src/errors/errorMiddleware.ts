@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import { ApiError } from './ApiError';
+import { logger } from '../utils/logger';
 
 interface ErrorResponse {
   success: boolean;
@@ -17,7 +18,17 @@ export const errorMiddleware = (
   res: Response,
   _next: NextFunction
 ): Response<ErrorResponse> => {
-  console.error(`[ERROR] ${err.name}: ${err.message}`);
+  const requestId = req.headers['x-request-id'] as string;
+  
+  logger.error({
+    type: 'error',
+    requestId,
+    name: err.name,
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+  });
 
   if (err instanceof ZodError) {
     const details = err.issues.map((issue) => ({
@@ -120,6 +131,15 @@ export const errorMiddleware = (
 };
 
 export const notFoundHandler = (req: Request, res: Response): Response<ErrorResponse> => {
+  const requestId = req.headers['x-request-id'] as string;
+  
+  logger.warn({
+    type: 'not_found',
+    requestId,
+    path: req.path,
+    method: req.method,
+  });
+  
   return res.status(404).json({
     success: false,
     message: `Yo'l topilmadi: ${req.method} ${req.originalUrl}`,

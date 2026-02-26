@@ -1,11 +1,31 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+if (!API_BASE_URL) {
+  throw new Error('NEXT_PUBLIC_API_URL environment variable is required');
+}
+
+export const ERROR_CODES = {
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  TOKEN_EXPIRED: 'TOKEN_EXPIRED',
+  FORBIDDEN: 'FORBIDDEN',
+  NOT_FOUND: 'NOT_FOUND',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  DUPLICATE_ENTRY: 'DUPLICATE_ENTRY',
+  NETWORK_ERROR: 'NETWORK_ERROR',
+  TIMEOUT: 'TIMEOUT',
+  SERVER_ERROR: 'SERVER_ERROR',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
+export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
 
 export interface ApiError {
   message: string;
-  code?: string;
-  status?: number;
+  code: ErrorCode;
+  status: number;
 }
 
 const api = axios.create({
@@ -67,14 +87,14 @@ api.interceptors.response.use(
       if (error.code === 'ECONNABORTED') {
         return Promise.reject({
           message: 'Request timed out. Please check your connection.',
-          code: 'TIMEOUT',
+          code: ERROR_CODES.TIMEOUT,
           status: 408,
         } as ApiError);
       }
       
       return Promise.reject({
         message: 'Unable to connect to server. Please check your internet connection.',
-        code: 'NETWORK_ERROR',
+        code: ERROR_CODES.NETWORK_ERROR,
         status: 0,
       } as ApiError);
     }
@@ -85,28 +105,31 @@ api.interceptors.response.use(
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        alert('Sizning seansingiz muddati tugadi. Iltimos, qayta kiring.');
-        window.location.href = '/login';
+        
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/login' && currentPath !== '/register') {
+          window.location.href = '/login?reason=session_expired';
+        }
       }
       return Promise.reject({
-        message: 'Sizning seansingiz muddati tugadi. Iltimos, qayta kiring.',
-        code: 'UNAUTHORIZED',
+        message: error.response.data?.message || 'Sessiya muddati tugagan. Iltimos, qayta kiring.',
+        code: ERROR_CODES.UNAUTHORIZED,
         status: 401,
       } as ApiError);
     }
 
     if (status === 403) {
       return Promise.reject({
-        message: 'You do not have permission to perform this action.',
-        code: 'FORBIDDEN',
+        message: error.response.data?.message || 'You do not have permission to perform this action.',
+        code: ERROR_CODES.FORBIDDEN,
         status: 403,
       } as ApiError);
     }
 
     if (status === 404) {
       return Promise.reject({
-        message: 'The requested resource was not found.',
-        code: 'NOT_FOUND',
+        message: error.response.data?.message || 'The requested resource was not found.',
+        code: ERROR_CODES.NOT_FOUND,
         status: 404,
       } as ApiError);
     }
@@ -114,16 +137,17 @@ api.interceptors.response.use(
     if (status === 500) {
       return Promise.reject({
         message: 'Server error. Please try again later.',
-        code: 'SERVER_ERROR',
+        code: ERROR_CODES.SERVER_ERROR,
         status: 500,
       } as ApiError);
     }
 
     const errorMessage = error.response.data?.error || error.response.data?.message || 'An error occurred';
+    const errorCode = (error.response.data as { errorCode?: string })?.errorCode || ERROR_CODES.UNKNOWN;
     
     return Promise.reject({
       message: errorMessage,
-      code: 'UNKNOWN',
+      code: errorCode as ErrorCode,
       status,
     } as ApiError);
   }

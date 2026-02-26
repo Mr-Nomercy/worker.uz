@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { createServer } from 'http';
+import { v4 as requestId } from 'uuid';
 
 import authRoutes from './routes/auth.routes';
 import jobRoutes from './routes/job.routes';
@@ -14,11 +15,43 @@ import profileRoutes from './routes/profile.routes';
 
 import { errorMiddleware, notFoundHandler } from './errors';
 import { initializeSocket } from './socket/socket';
+import { logger } from './utils/logger';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// CORS configuration from environment
+const corsOrigins = process.env.CORS_ORIGINS 
+  ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'];
+
+app.use(cors({
+  origin: corsOrigins,
+  credentials: true,
+}));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Structured request logging
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const reqId = requestId();
+  res.setHeader('X-Request-ID', reqId);
+  
+  logger.info({
+    type: 'request',
+    requestId: reqId,
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+  });
+  
+  next();
+});
 
 // Create HTTP server
 const httpServer = createServer(app);
@@ -28,20 +61,6 @@ const io = initializeSocket(httpServer);
 
 // Make io available in routes
 app.set('io', io);
-
-// Middleware
-app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
-  credentials: true,
-}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Request logging
-app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
-  next();
-});
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
