@@ -6,6 +6,124 @@ import { AuthRequest } from '../middleware/auth.middleware';
 
 export const adminController = {
   /**
+   * GET /api/admin/dashboard
+   * Comprehensive dashboard statistics for admin overview
+   */
+  async getDashboardStats(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const [
+        totalCandidates,
+        verifiedCandidates,
+        totalEmployers,
+        verifiedEmployers,
+        totalJobs,
+        activeJobs,
+        totalApplications,
+        acceptedApplications,
+        rejectedApplications,
+        pendingApplications,
+        verifiedCompanies,
+        pendingCompanies,
+        totalContactRequests,
+        acceptedContactRequests,
+        rejectedContactRequests,
+        pendingContactRequests,
+        recentUsers,
+        skillStats,
+      ] = await Promise.all([
+        prisma.user.count({ where: { role: 'CANDIDATE' } }),
+        prisma.user.count({ where: { role: 'CANDIDATE', isVerified: true } }),
+        prisma.user.count({ where: { role: 'EMPLOYER' } }),
+        prisma.user.count({ where: { role: 'EMPLOYER', isVerified: true } }),
+        prisma.job.count(),
+        prisma.job.count({ where: { status: 'OPEN' } }),
+        prisma.application.count(),
+        prisma.application.count({ where: { status: 'ACCEPTED' } }),
+        prisma.application.count({ where: { status: 'REJECTED' } }),
+        prisma.application.count({ where: { status: 'PENDING' } }),
+        prisma.company.count({ where: { isVerified: true } }),
+        prisma.company.count({ where: { isVerified: false } }),
+        prisma.contactRequest.count(),
+        prisma.contactRequest.count({ where: { status: 'ACCEPTED' } }),
+        prisma.contactRequest.count({ where: { status: 'REJECTED' } }),
+        prisma.contactRequest.count({ where: { status: 'PENDING' } }),
+        prisma.user.findMany({
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            isVerified: true,
+            createdAt: true,
+            profile: { select: { fullName: true } },
+            company: { select: { name: true, isVerified: true } },
+          },
+        }),
+        prisma.profile.findMany({
+          where: {
+            user: { isVerified: true },
+          },
+          select: { softSkills: true },
+        }),
+      ]);
+
+      const allSkills = skillStats.flatMap(p => p.softSkills || []);
+      const skillCounts: Record<string, number> = {};
+      allSkills.forEach(skill => {
+        skillCounts[skill] = (skillCounts[skill] || 0) + 1;
+      });
+      const topSkills = Object.entries(skillCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5)
+        .map(([skill, count]) => ({ skill, count }));
+
+      const totalUsers = totalCandidates + totalEmployers;
+      const verifiedUsers = verifiedCandidates + verifiedEmployers;
+      const verificationRate = totalUsers > 0 ? Math.round((verifiedUsers / totalUsers) * 100) : 0;
+      const matchSuccessRate = totalApplications > 0 ? Math.round((acceptedApplications / totalApplications) * 100) : 0;
+      const contactRequestSuccessRate = totalContactRequests > 0 ? Math.round((acceptedContactRequests / totalContactRequests) * 100) : 0;
+
+      res.json(successResponse({
+        users: {
+          total: totalUsers,
+          candidates: totalCandidates,
+          verifiedCandidates,
+          employers: totalEmployers,
+          verifiedEmployers,
+          verificationRate,
+        },
+        jobs: {
+          total: totalJobs,
+          active: activeJobs,
+        },
+        applications: {
+          total: totalApplications,
+          accepted: acceptedApplications,
+          rejected: rejectedApplications,
+          pending: pendingApplications,
+          successRate: matchSuccessRate,
+        },
+        companies: {
+          verified: verifiedCompanies,
+          pending: pendingCompanies,
+        },
+        contactRequests: {
+          total: totalContactRequests,
+          accepted: acceptedContactRequests,
+          rejected: rejectedContactRequests,
+          pending: pendingContactRequests,
+          successRate: contactRequestSuccessRate,
+        },
+        topSkills,
+        recentUsers,
+      }));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
    * GET /api/admin/metrics
    * Optimized parallel database counts
    */

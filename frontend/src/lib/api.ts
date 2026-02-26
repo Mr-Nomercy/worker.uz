@@ -208,6 +208,7 @@ export const profileApi = {
 };
 
 export const adminApi = {
+  getDashboard: () => api.get('/admin/dashboard'),
   getMetrics: () => api.get('/admin/stats'),
   getStats: () => api.get('/admin/stats'),
   getAuditLogs: (params?: { page?: number; limit?: number; action?: string }) => 
