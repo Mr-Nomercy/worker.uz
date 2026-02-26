@@ -64,8 +64,9 @@ export default function LoginPage() {
     setError("");
     try {
       await login(email, password);
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.error || err?.message || "Login muvaffaqiyatsiz. Qayta urinib ko'ring.";
+    } catch (err: unknown) {
+      const error = err as { message?: string; response?: { data?: { message?: string } } };
+      const errorMsg = error?.response?.data?.message || error?.message || "Login muvaffaqiyatsiz. Qayta urinib ko'ring.";
       setError(errorMsg);
     } finally {
       setIsLoading(false);

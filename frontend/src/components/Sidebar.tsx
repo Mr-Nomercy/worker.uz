@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { jobs } from "@/lib/mockData";
 
 interface NavItem {
   label: string;
@@ -46,7 +45,6 @@ const candidateNavItems: NavItem[] = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
       </svg>
     ),
-    badge: `${jobs.length} new`,
   },
   {
     label: "My Applications",

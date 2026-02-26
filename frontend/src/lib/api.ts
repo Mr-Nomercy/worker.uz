@@ -1,10 +1,17 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const getApiBaseUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('NEXT_PUBLIC_API_URL not set, using default localhost');
+    return 'http://localhost:3001/api';
+  }
+  throw new Error('NEXT_PUBLIC_API_URL environment variable is required in production');
+};
 
-if (!API_BASE_URL) {
-  throw new Error('NEXT_PUBLIC_API_URL environment variable is required');
-}
+const API_BASE_URL = getApiBaseUrl();
 
 export const ERROR_CODES = {
   UNAUTHORIZED: 'UNAUTHORIZED',
