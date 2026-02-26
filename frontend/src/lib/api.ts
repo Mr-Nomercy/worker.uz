@@ -85,10 +85,11 @@ api.interceptors.response.use(
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        alert('Sizning seansingiz muddati tugadi. Iltimos, qayta kiring.');
         window.location.href = '/login';
       }
       return Promise.reject({
-        message: 'Session expired. Please log in again.',
+        message: 'Sizning seansingiz muddati tugadi. Iltimos, qayta kiring.',
         code: 'UNAUTHORIZED',
         status: 401,
       } as ApiError);
@@ -131,6 +132,8 @@ api.interceptors.response.use(
 export const authApi = {
   login: (email: string, password: string) => 
     api.post('/auth/login', { email, password }),
+  register: (data: { email: string; password: string; pinfl: string; passportSeries: string; fullName: string; birthDate: string }) =>
+    api.post('/auth/register', data),
   me: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
 };
@@ -162,19 +165,62 @@ export const matchingApi = {
   getJobMatches: () => api.get('/matching/jobs'),
   getCandidateMatches: (jobId: string) => api.get(`/matching/candidates/${jobId}`),
   getAIAdvice: (jobId: string, lang?: string) => api.get(`/matching/ai-advice/${jobId}`, { params: { lang } }),
+  searchCandidates: (params: { 
+    skills?: string; 
+    location?: string; 
+    verifiedOnly?: boolean; 
+    page?: number; 
+    limit?: number;
+  }) => api.get('/matching/search-candidates', { params }),
+  requestContact: (candidateId: string, data?: { jobId?: string; message?: string }) => 
+    api.post(`/matching/request/${candidateId}`, data || {}),
+  acceptContactRequest: (requestId: string) => 
+    api.post(`/matching/accept/${requestId}`),
+  rejectContactRequest: (requestId: string) => 
+    api.post(`/matching/reject/${requestId}`),
+  getRequestStatus: (candidateId: string) => 
+    api.get(`/matching/request-status/${candidateId}`),
+  getNotifications: (params?: { page?: number; limit?: number }) => 
+    api.get('/matching/notifications', { params }),
+  markNotificationRead: (id: string) => 
+    api.patch(`/matching/notifications/${id}/read`),
+  markAllNotificationsRead: () => 
+    api.patch('/matching/notifications/read-all'),
+};
+
+export const profileApi = {
+  getProfile: () => api.get('/profile'),
+  updateProfile: (data: { 
+    phoneNumber?: string; 
+    softSkills?: string[];
+    portfolioLinks?: { label: string; url: string }[];
+  }) => api.patch('/profile', data),
+  uploadCV: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/profile/cv', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  deleteCV: () => api.delete('/profile/cv'),
 };
 
 export const adminApi = {
-  getMetrics: () => api.get('/admin/metrics'),
-  getAuditLogs: (params?: { page?: number; limit?: number; action?: string; entityType?: string }) => 
-    api.get('/admin/audit-logs', { params }),
-  getCompanies: (params?: { verified?: boolean; page?: number; limit?: number }) => 
+  getMetrics: () => api.get('/admin/stats'),
+  getStats: () => api.get('/admin/stats'),
+  getAuditLogs: (params?: { page?: number; limit?: number; action?: string }) => 
+    api.get('/admin/audit', { params }),
+  getCompanies: (params?: { page?: number; limit?: number; verified?: boolean }) => 
     api.get('/admin/companies', { params }),
-  verifyCompany: (id: string, verified: boolean) => 
-    api.patch(`/admin/companies/${id}/verify`, { verified }),
+  verifyCompany: (companyId: string) => 
+    api.patch(`/admin/companies/${companyId}/verify`),
   getAIConfig: () => api.get('/admin/ai-config'),
-  updateAIConfig: (data: { matchSensitivity?: number; minMatchScore?: number; maxCandidatesPerJob?: number; automatedVerification?: boolean }) => 
-    api.patch('/admin/ai-config', data),
+  updateAIConfig: (data: { 
+    matchSensitivity?: number; 
+    minMatchScore?: number;
+    maxCandidatesPerJob?: number;
+    automatedVerification?: boolean;
+  }) => api.patch('/admin/ai-config', data),
 };
 
 export default api;

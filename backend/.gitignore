@@ -24,6 +24,10 @@ yarn-error.log*
 # Prisma
 prisma/*.db
 
+# Uploads
+uploads/
+
 # IDE
 .idea/
 .vscode/
+uploads/

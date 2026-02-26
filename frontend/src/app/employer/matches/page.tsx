@@ -115,6 +115,7 @@ export default function EmployerMatchesPage() {
               {candidates.map((candidate) => (
                 <CandidateCard
                   key={candidate.id}
+                  id={candidate.id}
                   name={candidate.profile?.fullName || "Unknown"}
                   initials={getInitials(candidate.profile?.fullName || "UN")}
                   role="Candidate"

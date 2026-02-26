@@ -1,8 +1,8 @@
 import { Response, NextFunction } from 'express';
+import { Prisma, ApplicationStatus } from '@prisma/client';
 import prisma from '../utils/prisma';
 import { successResponse, AppError } from '../utils/apiResponse';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { ApplicationStatus } from '@prisma/client';
 import matchingService from '../services/matching.service';
 
 export const applicationController = {
@@ -124,9 +124,9 @@ export const applicationController = {
       const candidateId = req.user!.id;
       const { status } = req.query;
 
-      const where: any = { candidateId };
+      const where: Prisma.ApplicationWhereInput = { candidateId };
       if (status) {
-        where.status = status;
+        where.status = status as ApplicationStatus;
       }
 
       const applications = await prisma.application.findMany({

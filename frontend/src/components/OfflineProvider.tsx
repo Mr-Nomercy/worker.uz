@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { useAuth } from '@/app/login/page';
+import { useAuth } from '@/lib/AuthContext';
 import { setOfflineModeCallback } from '@/lib/api';
 
 interface OfflineContextType {

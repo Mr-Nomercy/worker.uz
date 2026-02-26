@@ -1,85 +1,15 @@
 "use client";
 
-import { useState, createContext, useContext, ReactNode } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { authApi } from "@/lib/api";
-
-interface User {
-  id: string;
-  email: string;
-  role: string;
-  isVerified: boolean;
-  profile?: {
-    fullName: string;
-  };
-  company?: {
-    name: string;
-  };
-}
-
-interface AuthContextType {
-  user: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-  isLoading: boolean;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('user');
-      return stored ? JSON.parse(stored) : null;
-    }
-    return null;
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-
-  const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const response = await authApi.login(email, password);
-      const { user, token } = response.data.data;
-      
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      setUser(user);
-
-      const redirectPath = user.role.toLowerCase();
-      router.push(`/${redirectPath}`);
-    } catch (error) {
-      console.error('Login failed:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    router.push('/login');
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
+import { useAuth, User } from "@/lib/AuthContext";
 
 type Role = "candidate" | "employer" | "admin";
+
+interface FormErrors {
+  email?: string;
+  password?: string;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -87,21 +17,56 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role>("candidate");
   const [error, setError] = useState("");
+  
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<{email?: boolean; password?: boolean}>({});
 
-  const credentials = {
-    candidate: { email: "aziz.karimov@example.com", password: "password123" },
-    employer: { email: "hr@techcorp.uz", password: "password123" },
-    admin: { email: "admin@worker.uz", password: "password123" },
+  const validateEmail = (email: string): string | undefined => {
+    if (!email) return "Email kiritish majburiy";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return "To'g'ri email formatini kiriting";
+    return undefined;
   };
 
-  const handleLogin = async () => {
+  const validatePassword = (password: string): string | undefined => {
+    if (!password) return "Parol kiritish majburiy";
+    if (password.length < 6) return "Parol kamida 6 ta belgidan iborat bo'lishi kerak";
+    return undefined;
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {
+      email: validateEmail(email),
+      password: validatePassword(password),
+    };
+    setErrors(newErrors);
+    return !newErrors.email && !newErrors.password;
+  };
+
+  const handleBlur = (field: 'email' | 'password') => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    if (field === 'email') {
+      setErrors(prev => ({ ...prev, email: validateEmail(email) }));
+    } else {
+      setErrors(prev => ({ ...prev, password: validatePassword(password) }));
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTouched({ email: true, password: true });
+    
+    if (!validateForm()) return;
+    
     setIsLoading(true);
     setError("");
     try {
-      const creds = credentials[selectedRole];
-      await login(creds.email, creds.password);
+      await login(email, password);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Login failed. Please try again.");
+      const errorMsg = err?.response?.data?.error || err?.message || "Login muvaffaqiyatsiz. Qayta urinib ko'ring.";
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -159,44 +124,86 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-white rounded-3xl shadow-2xl p-8">
-          <h2 className="text-xl font-semibold text-slate-800 text-center mb-6">Sign in to your account</h2>
+          <h2 className="text-xl font-semibold text-slate-800 text-center mb-6">Tizimga kirish</h2>
 
-          <button
-            onClick={handleLogin}
-            disabled={isLoading}
-            className="w-full py-4 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary-500/25 flex items-center justify-center gap-3 mb-6"
-          >
-            {isLoading ? (
-              <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            ) : (
-              <>
-                <svg className="w-6 h-6" viewBox="0 0 48 48" fill="none">
-                  <rect width="48" height="48" rx="8" fill="#1F8DFA"/>
-                  <path d="M24 12L12 18V30L24 36L36 30V18L24 12Z" fill="white" fillOpacity="0.9"/>
-                  <path d="M24 12L12 18L24 24L36 18L24 12Z" fill="white"/>
-                  <path d="M12 18V30L24 36V24L12 18Z" fill="white" fillOpacity="0.7"/>
-                  <path d="M36 18V30L24 36V24L36 18Z" fill="white" fillOpacity="0.5"/>
-                </svg>
-                Enter via OneID
-              </>
-            )}
-          </button>
-
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
-              {error}
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); if (touched.email) setErrors(prev => ({...prev, email: validateEmail(e.target.value)})); }}
+                onBlur={() => handleBlur('email')}
+                className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none ${
+                  errors.email && touched.email
+                    ? "border-red-500 bg-red-50 focus:border-red-500"
+                    : "border-slate-200 focus:border-primary-500 bg-white"
+                }`}
+                placeholder="email@example.com"
+                disabled={isLoading}
+              />
+              {errors.email && touched.email && (
+                <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+              )}
             </div>
-          )}
 
-          <div className="relative mb-6">
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
+                Parol
+              </label>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); if (touched.password) setErrors(prev => ({...prev, password: validatePassword(e.target.value)})); }}
+                onBlur={() => handleBlur('password')}
+                className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none ${
+                  errors.password && touched.password
+                    ? "border-red-500 bg-red-50 focus:border-red-500"
+                    : "border-slate-200 focus:border-primary-500 bg-white"
+                }`}
+                placeholder="••••••••"
+                disabled={isLoading}
+              />
+              {errors.password && touched.password && (
+                <p className="mt-1 text-sm text-red-500">{errors.password}</p>
+              )}
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-4 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 disabled:from-slate-400 disabled:to-slate-500 text-white rounded-xl font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary-500/25 flex items-center justify-center gap-3 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Yuklanmoqda...
+                </>
+              ) : (
+                "Kirish"
+              )}
+            </button>
+          </form>
+
+          <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-slate-500">or continue with</span>
+              <span className="px-4 bg-white text-slate-500">yoki ro'l tanlang</span>
             </div>
           </div>
 

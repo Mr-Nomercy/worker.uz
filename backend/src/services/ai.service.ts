@@ -1,6 +1,14 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyDJqq7BHuuc_eY0sD5OVhg_LGuyzQdWxKs';
+const GEMINI_API_KEY = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+
+let genAI: GoogleGenerativeAI | null = null;
+
+if (GEMINI_API_KEY) {
+  genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+} else {
+  console.warn('⚠️  GOOGLE_API_KEY not set - AI features will use fallback mode');
+}
 
 interface CandidateProfile {
   fullName: string;
@@ -39,6 +47,65 @@ interface AIAdviceResponse {
   actionPlan: ActionPlanItem[];
 }
 
+const DEFAULT_AI_RESPONSE: AIAdviceResponse = {
+  matchScore: 0,
+  analysis: 'AI tahlili vaqtinchalik mavjud emas.',
+  missingSkills: [],
+  actionPlan: [
+    {
+      step: 1,
+      title: 'Profil ma\'lumotlarini tekshirish',
+      description: 'Profil ma\'lumotlarini to\'liq to\'ldiring va qayta urining.',
+      priority: 'high'
+    }
+  ]
+};
+
+function sanitizeJSON(response: string): string {
+  let cleaned = response.replace(/```json|```/g, '').trim();
+  
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  }
+  
+  cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, '');
+  
+  return cleaned;
+}
+
+function parseAIResponse(response: string): AIAdviceResponse {
+  try {
+    const sanitized = sanitizeJSON(response);
+    const parsed = JSON.parse(sanitized);
+    
+    const totalRequirements = parsed.requirements?.length || 0;
+    const matchedSkills = parsed.missingSkills ? 
+      Math.max(0, totalRequirements - parsed.missingSkills.length) : 0;
+    
+    let matchScore = parsed.matchScore || parsed.compatibilityScore || 0;
+    
+    if (totalRequirements > 0 && matchedSkills > 0) {
+      matchScore = Math.round((matchedSkills / totalRequirements) * 100);
+    }
+    
+    matchScore = Math.max(0, Math.min(100, Number(matchScore) || 0));
+    
+    return {
+      matchScore,
+      analysis: parsed.analysis || '',
+      missingSkills: Array.isArray(parsed.missingSkills) ? parsed.missingSkills : 
+                    Array.isArray(parsed.gaps) ? parsed.gaps : [],
+      actionPlan: Array.isArray(parsed.actionPlan) ? parsed.actionPlan : []
+    };
+  } catch (parseError) {
+    console.error('JSON Parse Error:', parseError);
+    return DEFAULT_AI_RESPONSE;
+  }
+}
+
 const systemPrompt = `Siz O'zbekiston mehnat bozori bo'yicha professional HR-maslahatchi va Karyera trenerisiz. 
 
 Vazifangiz:
@@ -67,7 +134,10 @@ Faqat JSON qaytaring, markdown ishlatmang.`;
 export const aiService = {
   async getSmartAdvice(candidate: CandidateProfile, job: JobDetails): Promise<AIAdviceResponse> {
     try {
-      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      if (!genAI) {
+        return DEFAULT_AI_RESPONSE;
+      }
+      
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
       const candidateSkills = candidate.softSkills.join(', ');
@@ -77,7 +147,7 @@ export const aiService = {
       const jobRequirements = job.requirements.join(', ');
 
       const prompt = `
-Menga quyidagi ma'lumotlarni tahlil qilib, tavsiyalar bering:
+Meng quyidagi ma'lumotlarni tahlil qilib, tavsiyalar bering:
 
 NOMZOD: ${candidate.fullName}
 Ko'nikmalar: ${candidateSkills}
@@ -108,37 +178,24 @@ Faqat JSON qaytaring.
 
       const response = result.response.text();
       
-      // Clean and parse JSON
-      const jsonStr = response.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(jsonStr);
-      
-      return {
-        matchScore: parsed.matchScore || parsed.compatibilityScore || 0,
-        analysis: parsed.analysis || '',
-        missingSkills: parsed.missingSkills || parsed.gaps || [],
-        actionPlan: parsed.actionPlan || [],
-      };
-    } catch (error: any) {
+      return parseAIResponse(response);
+    } catch (error) {
       console.error('Gemini AI Error:', error);
+      const err = error as Error;
       
-      // Check for rate limit
-      if (error?.message?.includes('429') || error?.message?.includes('rate limit')) {
-        throw new Error('AI hozirda band, iltimos 1 daqiqadan so\'ng qayta urining.');
+      if (err?.message?.includes('429') || err?.message?.includes('rate limit')) {
+        return {
+          ...DEFAULT_AI_RESPONSE,
+          analysis: 'AI hozirda band, iltimos 1 daqiqadan so\'ng qayta urining.'
+        };
       }
       
-      throw new Error('AI xizmatida xatolik yuz berdi. Qayta urinib ko\'ring.');
+      return DEFAULT_AI_RESPONSE;
     }
   },
 
   async getAdviceWithContext(candidateId: string, jobId: string): Promise<AIAdviceResponse> {
-    // This would fetch from database in controller
-    // For now, returning structure
-    return {
-      matchScore: 0,
-      analysis: '',
-      missingSkills: [],
-      actionPlan: []
-    };
+    return DEFAULT_AI_RESPONSE;
   }
 };
 

@@ -4,7 +4,11 @@ import { UserRole } from '@prisma/client';
 import prisma from '../utils/prisma';
 import { AppError } from '../utils/apiResponse';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'worker-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is not set');
+}
 
 export interface AuthRequest extends Request {
   user?: {

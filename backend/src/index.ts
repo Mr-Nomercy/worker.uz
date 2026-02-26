@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 
 import authRoutes from './routes/auth.routes';
 import jobRoutes from './routes/job.routes';
@@ -8,8 +9,10 @@ import applicationRoutes from './routes/application.routes';
 import adminRoutes from './routes/admin.routes';
 import matchingRoutes from './routes/matching.routes';
 import aiRoutes from './routes/ai.routes';
+import profileRoutes from './routes/profile.routes';
 
 import { AppError } from './utils/apiResponse';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 dotenv.config();
 
@@ -35,49 +38,23 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/matching', matchingRoutes);
-app.use('/api/matching', aiRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/profile', profileRoutes);
 
 // 404 handler
-app.use((req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    error: 'Route not found',
-  });
-});
+app.use(notFoundHandler);
 
 // Global error handler
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error:', err);
-
-  if (err instanceof AppError) {
-    return res.status(err.statusCode).json({
-      success: false,
-      error: err.message,
-    });
-  }
-
-  // Prisma errors
-  if (err.name === 'PrismaClientKnownRequestError') {
-    return res.status(400).json({
-      success: false,
-      error: 'Database operation failed',
-    });
-  }
-
-  // Default error
-  res.status(500).json({
-    success: false,
-    error: process.env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
-      : err.message,
-  });
-});
+app.use(errorHandler);
 
 // Start server
 app.listen(PORT, () => {

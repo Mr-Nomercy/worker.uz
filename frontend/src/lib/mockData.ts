@@ -74,8 +74,10 @@ export interface Candidate {
 export interface Application {
   id: string;
   jobId: string;
+  jobTitle?: string;
+  company?: string;
   candidateId: string;
-  status: "pending" | "accepted" | "rejected";
+  status: "pending" | "accepted" | "rejected" | "interview";
   appliedAt: string;
 }
 
@@ -327,21 +329,13 @@ export const companyVacancies: Vacancy[] = [
   },
 ];
 
-export interface Application {
-  id: string;
-  jobId: string;
-  jobTitle: string;
-  company: string;
-  appliedAt: string;
-  status: "pending" | "interview" | "rejected" | "accepted";
-}
-
 export const applications: Application[] = [
   {
     id: "app-1",
     jobId: "job-1",
     jobTitle: "Full Stack Developer",
     company: "TechCorp Uzbekistan",
+    candidateId: "candidate-1",
     appliedAt: "2024-01-15",
     status: "interview",
   },
@@ -350,6 +344,7 @@ export const applications: Application[] = [
     jobId: "job-2",
     jobTitle: "Senior Backend Engineer",
     company: "Payme Solutions",
+    candidateId: "candidate-1",
     appliedAt: "2024-01-18",
     status: "pending",
   },
@@ -358,6 +353,7 @@ export const applications: Application[] = [
     jobId: "job-3",
     jobTitle: "DevOps Engineer",
     company: "Beeline Uzbekistan",
+    candidateId: "candidate-1",
     appliedAt: "2024-01-10",
     status: "rejected",
   },
@@ -366,6 +362,7 @@ export const applications: Application[] = [
     jobId: "job-5",
     jobTitle: "Mobile Developer",
     company: "MyTaxi Uzbekistan",
+    candidateId: "candidate-1",
     appliedAt: "2024-01-20",
     status: "pending",
   },

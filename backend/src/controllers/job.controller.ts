@@ -1,8 +1,8 @@
 import { Response, NextFunction } from 'express';
+import { Prisma, JobStatus } from '@prisma/client';
 import prisma from '../utils/prisma';
 import { successResponse, AppError, paginatedResponse } from '../utils/apiResponse';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { JobStatus } from '@prisma/client';
 
 export const jobController = {
   /**
@@ -24,7 +24,7 @@ export const jobController = {
       const limitNum = Number(limit);
       const skip = (pageNum - 1) * limitNum;
 
-      const where: any = {
+      const where: Prisma.JobWhereInput = {
         status: status as JobStatus,
       };
 

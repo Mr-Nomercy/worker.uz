@@ -65,6 +65,8 @@ model User {
 
   @@index([email])
   @@index([pinfl])
+  @@index([isVerified])
+  @@index([role, isVerified])
 }
 
 model Profile {
@@ -84,6 +86,7 @@ model Profile {
   phoneNumber     String?
   softSkills      String[]  @default([])
   portfolioLinks  Json?     // Array of { label, url }
+  cvUrl           String?   // Uploaded CV file URL
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -233,4 +236,28 @@ model AIConfig {
   modelVersion            String    @default("v2.4.1")
   
   updatedAt               DateTime  @updatedAt
+}
+
+enum ContactRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model ContactRequest {
+  id              String              @id @default(cuid())
+  employerId      String
+  candidateId     String
+  jobId           String?
+  
+  status          ContactRequestStatus @default(PENDING)
+  message         String?
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([employerId, candidateId, jobId])
+  @@index([employerId])
+  @@index([candidateId])
+  @@index([status])
 }

@@ -5,23 +5,33 @@ import { useState } from "react";
 interface VacancyModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (vacancy: { title: string; salary: string; description: string }) => void;
+  onSubmit: (vacancy: { title: string; salary: string; description: string; requirements: string[]; location: string }) => void;
 }
 
 export function VacancyModal({ isOpen, onClose, onSubmit }: VacancyModalProps) {
   const [title, setTitle] = useState("");
   const [salary, setSalary] = useState("");
   const [description, setDescription] = useState("");
+  const [requirements, setRequirements] = useState("");
+  const [location, setLocation] = useState("");
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title && salary && description) {
-      onSubmit({ title, salary, description });
+      onSubmit({ 
+        title, 
+        salary, 
+        description,
+        requirements: requirements.split(",").map(r => r.trim()).filter(Boolean),
+        location: location || "Tashkent"
+      });
       setTitle("");
       setSalary("");
       setDescription("");
+      setRequirements("");
+      setLocation("");
     }
   };
 
@@ -81,6 +91,32 @@ export function VacancyModal({ isOpen, onClose, onSubmit }: VacancyModalProps) {
               rows={4}
               className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
               required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Requirements (comma-separated)
+            </label>
+            <input
+              type="text"
+              value={requirements}
+              onChange={(e) => setRequirements(e.target.value)}
+              placeholder="e.g., React, Node.js, TypeScript"
+              className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Location
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., Tashkent"
+              className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
 

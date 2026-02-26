@@ -34,10 +34,31 @@ const loadingMessages = [
 ];
 
 export function AICounselor({ jobId }: AICounselorProps) {
-  const { data, loading, error, refetch } = matchingApi.getAIAdvice(jobId, "uz");
+  const [data, setData] = useState<AIAdvice | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
-  
-  const advice: AIAdvice | null = data?.data?.data || null;
+
+  useEffect(() => {
+    const fetchAdvice = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await matchingApi.getAIAdvice(jobId, "uz");
+        setData(response.data.data);
+      } catch (err) {
+        setError("AI maslahatlarini olishda xatolik yuz berdi");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (jobId) {
+      fetchAdvice();
+    }
+  }, [jobId]);
+
+  const advice: AIAdvice | null = data;
 
   // Cycle through loading messages
   useEffect(() => {
@@ -176,10 +197,10 @@ export function AICounselor({ jobId }: AICounselorProps) {
               </div>
               <p className="text-red-600 font-medium mb-2">AI xizmatida xatolik</p>
               <p className="text-slate-500 text-sm mb-4">
-                {error?.message || "AI hozirda band, iltimos 1 daqiqadan so'ng qayta urining."}
+                {error || "AI hozirda band, iltimos 1 daqiqadan so'ng qayta urining."}
               </p>
               <button
-                onClick={() => refetch()}
+                onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
               >
                 Qayta urinish
@@ -292,7 +313,7 @@ export function AICounselor({ jobId }: AICounselorProps) {
               {/* Refresh Button */}
               <div className="text-center pt-4 border-t border-slate-100">
                 <button
-                  onClick={() => refetch()}
+                  onClick={() => window.location.reload()}
                   className="text-indigo-600 font-medium hover:text-indigo-700 text-sm inline-flex items-center gap-2 transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

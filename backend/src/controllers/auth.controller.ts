@@ -5,7 +5,11 @@ import prisma from '../utils/prisma';
 import { successResponse, AppError } from '../utils/apiResponse';
 import { AuthRequest } from '../middleware/auth.middleware';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'worker-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is not set');
+}
 
 export const authController = {
   /**
@@ -137,7 +141,7 @@ export const authController = {
     }
   },
 
-  /**
+   /**
    * POST /api/auth/register
    * Register new user (candidate)
    */
@@ -145,16 +149,16 @@ export const authController = {
     try {
       const { email, password, pinfl, passportSeries, fullName, birthDate } = req.body;
 
-      // Check if user exists
+      // Check if email already exists
       const existingUser = await prisma.user.findUnique({ where: { email } });
       if (existingUser) {
-        throw new AppError('Email already registered', 400);
+        throw new AppError('Ushbu email bilan ro\'yxatdan o\'tilgan. Iltimos, boshqa email kiriting yoki tizimga kiring.', 409);
       }
 
       // Check PINFL uniqueness
       const existingPinfl = await prisma.user.findUnique({ where: { pinfl } });
       if (existingPinfl) {
-        throw new AppError('This PINFL is already registered', 400);
+        throw new AppError('Ushbu PINFL bilan ro\'yxatdan o\'tilgan. Iltimos, boshqa PINFL kiriting.', 409);
       }
 
       const passwordHash = await bcrypt.hash(password, 12);
@@ -166,12 +170,12 @@ export const authController = {
           pinfl,
           passportSeries,
           role: 'CANDIDATE',
-          isVerified: true, // In production, verify via OneID API
+          isVerified: true,
           profile: {
             create: {
               fullName,
               birthDate: new Date(birthDate),
-              gender: 'MALE', // Get from request
+              gender: 'MALE',
               address: '',
               educationHistory: [],
               workHistory: [],
@@ -184,7 +188,15 @@ export const authController = {
       const { passwordHash: _, ...userWithoutPassword } = user;
 
       res.status(201).json(successResponse(userWithoutPassword, 'Registration successful'));
-    } catch (error) {
+    } catch (error: any) {
+      // Handle Prisma unique constraint violation (race condition)
+      if (error.code === 'P2002') {
+        const field = error.meta?.target?.[0] || 'email';
+        if (field === 'email') {
+          return next(new AppError('Ushbu email bilan ro\'yxatdan o\'tilgan. Iltimos, boshqa email kiriting yoki tizimga kiring.', 409));
+        }
+        return next(new AppError('Ushbu ma\'lumot bazada mavjud. Iltimos, boshqa ma\'lumot kiriting.', 409));
+      }
       next(error);
     }
   },

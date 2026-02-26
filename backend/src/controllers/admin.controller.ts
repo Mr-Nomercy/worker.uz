@@ -1,4 +1,5 @@
 import { Response, NextFunction } from 'express';
+import { Prisma, UserRole } from '@prisma/client';
 import prisma from '../utils/prisma';
 import { successResponse, AppError, paginatedResponse } from '../utils/apiResponse';
 import { AuthRequest } from '../middleware/auth.middleware';
@@ -6,10 +7,13 @@ import { AuthRequest } from '../middleware/auth.middleware';
 export const adminController = {
   /**
    * GET /api/admin/metrics
-   * Real database counts
+   * Optimized parallel database counts
    */
   async getMetrics(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+
       const [
         totalCandidates,
         totalEmployers,
@@ -23,6 +27,9 @@ export const adminController = {
         verifiedCompanies,
         pendingCompanies,
         totalInterviews,
+        newCandidatesThisWeek,
+        newJobsThisWeek,
+        newApplicationsThisWeek,
       ] = await Promise.all([
         prisma.user.count({ where: { role: 'CANDIDATE' } }),
         prisma.user.count({ where: { role: 'EMPLOYER' } }),
@@ -36,26 +43,6 @@ export const adminController = {
         prisma.company.count({ where: { isVerified: true } }),
         prisma.company.count({ where: { isVerified: false } }),
         prisma.interview.count(),
-      ]);
-
-      // Calculate additional metrics
-      const matchRate = totalApplications > 0 
-        ? Math.round((acceptedApplications / totalApplications) * 100) 
-        : 0;
-
-      const interviewRate = totalApplications > 0
-        ? Math.round((totalInterviews / totalApplications) * 100)
-        : 0;
-
-      // Get recent activity (last 7 days)
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-
-      const [
-        newCandidatesThisWeek,
-        newJobsThisWeek,
-        newApplicationsThisWeek,
-      ] = await Promise.all([
         prisma.user.count({
           where: { 
             role: 'CANDIDATE',
@@ -70,35 +57,34 @@ export const adminController = {
         }),
       ]);
 
+      const matchRate = totalApplications > 0 
+        ? Math.round((acceptedApplications / totalApplications) * 100) 
+        : 0;
+
+      const interviewRate = totalApplications > 0
+        ? Math.round((totalInterviews / totalApplications) * 100)
+        : 0;
+
       res.json(successResponse({
-        // Core counts
         totalCandidates,
         totalEmployers,
         totalJobs,
         activeJobs,
         closedJobs,
-        
-        // Application stats
         totalApplications,
         acceptedApplications,
         rejectedApplications,
         pendingApplications,
-        
-        // Company stats
         verifiedCompanies,
         pendingCompanies,
-        
-        // Interview stats
         totalInterviews,
-        
-        // Calculated rates
         matchRate,
         interviewRate,
-        
-        // Weekly activity
-        newCandidatesThisWeek,
-        newJobsThisWeek,
-        newApplicationsThisWeek,
+        weeklyTrends: {
+          newCandidates: newCandidatesThisWeek,
+          newJobs: newJobsThisWeek,
+          newApplications: newApplicationsThisWeek,
+        },
       }));
     } catch (error) {
       next(error);
@@ -116,7 +102,7 @@ export const adminController = {
       const limitNum = Number(limit);
       const skip = (pageNum - 1) * limitNum;
 
-      const where: any = {};
+      const where: Prisma.AuditLogWhereInput = {};
 
       if (action) {
         where.action = { contains: action as string, mode: 'insensitive' };
@@ -166,7 +152,7 @@ export const adminController = {
       const limitNum = Number(limit);
       const skip = (pageNum - 1) * limitNum;
 
-      const where: any = {};
+      const where: Prisma.CompanyWhereInput = {};
       if (verified !== undefined) {
         where.isVerified = verified === 'true';
       }
@@ -326,8 +312,8 @@ export const adminController = {
       const limitNum = Number(limit);
       const skip = (pageNum - 1) * limitNum;
 
-      const where: any = {};
-      if (role) where.role = role as string;
+      const where: Prisma.UserWhereInput = {};
+      if (role) where.role = role as UserRole;
       if (verified !== undefined) where.isVerified = verified === 'true';
 
       const [users, total] = await Promise.all([

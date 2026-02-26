@@ -84,7 +84,7 @@ export const aiController = {
         },
         hasApplied: !!existingApplication,
       }));
-    } catch (error: any) {
+    } catch (error) {
       console.error('AI Advice Error:', error);
       next(error);
     }
