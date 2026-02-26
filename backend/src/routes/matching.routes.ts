@@ -335,6 +335,8 @@ router.post(
         }
       });
 
+      const io = req.app.get('io');
+      
       await prisma.notification.create({
         data: {
           userId: candidateId,
@@ -343,6 +345,14 @@ router.post(
           type: 'info'
         }
       });
+
+      if (io) {
+        io.to(candidateId).emit('new_notification', {
+          title: 'Yangi bog\'lanish so\'rovi',
+          message: `${employer.company.name} siz bilan bog\'lanmoqchi`,
+          type: 'info'
+        });
+      }
 
       res.json(successResponse({
         request: contactRequest,

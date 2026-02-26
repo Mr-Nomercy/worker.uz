@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { matchingApi } from "@/lib/api";
+import { useSocket } from "@/lib/useSocket";
 import { NotificationItem, NotificationData } from "./NotificationItem";
 import { Toast } from "./Toast";
 
@@ -22,6 +23,17 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<ToastState>({ visible: false, message: "", type: "info" });
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  const { notifications: socketNotifications } = useSocket();
+
+  // Handle real-time notifications
+  useEffect(() => {
+    if (socketNotifications.length > 0) {
+      const latestNotification = socketNotifications[0];
+      showToast(latestNotification.message, "info");
+      setUnreadCount(prev => prev + 1);
+    }
+  }, [socketNotifications]);
 
   const showToast = (message: string, type: "success" | "error" | "info") => {
     setToast({ visible: true, message, type });

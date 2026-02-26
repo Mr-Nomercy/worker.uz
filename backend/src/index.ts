@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import { createServer } from 'http';
 
 import authRoutes from './routes/auth.routes';
 import jobRoutes from './routes/job.routes';
@@ -13,11 +14,21 @@ import profileRoutes from './routes/profile.routes';
 
 import { AppError } from './utils/apiResponse';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { initializeSocket } from './socket/socket';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Create HTTP server
+const httpServer = createServer(app);
+
+// Initialize Socket.io
+const io = initializeSocket(httpServer);
+
+// Make io available in routes
+app.set('io', io);
 
 // Middleware
 app.use(cors({
@@ -57,7 +68,7 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
@@ -66,6 +77,7 @@ app.listen(PORT, () => {
 ║   Status:     Running                                     ║
 ║   Port:       ${PORT}                                        ║
 ║   Environment: ${process.env.NODE_ENV || 'development'}                          ║
+║   Socket.io:  Enabled                                      ║
 ║                                                           ║
 ║   Endpoints:                                             ║
 ║   - POST   /api/auth/login                               ║
