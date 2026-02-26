@@ -180,6 +180,8 @@ export const matchingApi = {
     api.post(`/matching/reject/${requestId}`),
   getRequestStatus: (candidateId: string) => 
     api.get(`/matching/request-status/${candidateId}`),
+  getCandidateContactByRequest: (candidateId: string) => 
+    api.get(`/matching/candidate-contact-by-request/${candidateId}`),
   getNotifications: (params?: { page?: number; limit?: number }) => 
     api.get('/matching/notifications', { params }),
   markNotificationRead: (id: string) => 
