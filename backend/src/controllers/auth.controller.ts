@@ -1,205 +1,47 @@
 import { Request, Response, NextFunction } from 'express';
-import * as bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import prisma from '../utils/prisma';
-import { successResponse, AppError } from '../utils/apiResponse';
+import { authService } from '../services/auth.service';
+import { catchAsync } from '../utils/catchAsync';
+import { successResponse } from '../utils/apiResponse';
 import { AuthRequest } from '../middleware/auth.middleware';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is not set');
-}
-
 export const authController = {
-  /**
-   * POST /api/auth/login
-   * Real authentication with database lookup
-   */
-  async login(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { email, password } = req.body;
+  login: catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const { email, password } = req.body;
+    const result = await authService.login({ email, password });
 
-      if (!email || !password) {
-        throw new AppError('Email and password are required', 400);
-      }
+    res.json(successResponse(result, 'Login successful'));
+  }),
 
-      const user = await prisma.user.findUnique({
-        where: { email },
-        include: {
-          profile: true,
-          company: {
-            include: {
-              jobs: {
-                select: { id: true },
-                take: 1,
-              },
-            },
-          },
-        },
-      });
+  register: catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+    const { email, password, pinfl, passportSeries, fullName, birthDate } = req.body;
+    const user = await authService.register({
+      email,
+      password,
+      pinfl,
+      passportSeries,
+      fullName,
+      birthDate,
+    });
 
-      if (!user) {
-        throw new AppError('Invalid email or password', 401);
-      }
+    const { passwordHash, ...userWithoutPassword } = user;
+    res.status(201).json(successResponse(userWithoutPassword, 'Registration successful'));
+  }),
 
-      const isValidPassword = await bcrypt.compare(password, user.passwordHash);
-      if (!isValidPassword) {
-        throw new AppError('Invalid email or password', 401);
-      }
+  me: catchAsync(async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const userId = req.user!.id;
+    const user = await authService.getCurrentUser(userId);
 
-      // Log the login action
-      await prisma.auditLog.create({
-        data: {
-          userId: user.id,
-          action: 'LOGIN',
-          entityType: 'USER',
-          entityId: user.id,
-          details: { 
-            method: 'email_password', 
-            verified: user.isVerified,
-            role: user.role 
-          },
-          ipAddress: req.ip || 'unknown',
-          userAgent: req.headers['user-agent'],
-        },
-      });
+    const { passwordHash, ...userWithoutPassword } = user;
+    res.json(successResponse(userWithoutPassword));
+  }),
 
-      const { passwordHash, ...userWithoutPassword } = user;
+  logout: catchAsync(async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const userId = req.user?.id;
 
-      // Generate JWT token
-      const token = jwt.sign(
-        { userId: user.id, role: user.role },
-        JWT_SECRET,
-        { expiresIn: '7d' }
-      );
+    await authService.logout(userId);
 
-      res.json(successResponse({
-        user: userWithoutPassword,
-        token,
-      }, 'Login successful'));
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * GET /api/auth/me
-   * Get current authenticated user
-   */
-  async me(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user!.id;
-
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          profile: true,
-          company: {
-            include: {
-              jobs: {
-                orderBy: { createdAt: 'desc' },
-                take: 5,
-              },
-            },
-          },
-        },
-      });
-
-      if (!user) {
-        throw new AppError('User not found', 404);
-      }
-
-      const { passwordHash, ...userWithoutPassword } = user;
-
-      res.json(successResponse(userWithoutPassword));
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * POST /api/auth/logout
-   */
-  async logout(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      if (req.user?.id) {
-        await prisma.auditLog.create({
-          data: {
-            userId: req.user.id,
-            action: 'LOGOUT',
-            entityType: 'USER',
-            entityId: req.user.id,
-            ipAddress: req.ip || 'unknown',
-          },
-        });
-      }
-
-      res.json(successResponse(null, 'Logout successful'));
-    } catch (error) {
-      next(error);
-    }
-  },
-
-   /**
-   * POST /api/auth/register
-   * Register new user (candidate)
-   */
-  async register(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { email, password, pinfl, passportSeries, fullName, birthDate } = req.body;
-
-      // Check if email already exists
-      const existingUser = await prisma.user.findUnique({ where: { email } });
-      if (existingUser) {
-        throw new AppError('Ushbu email bilan ro\'yxatdan o\'tilgan. Iltimos, boshqa email kiriting yoki tizimga kiring.', 409);
-      }
-
-      // Check PINFL uniqueness
-      const existingPinfl = await prisma.user.findUnique({ where: { pinfl } });
-      if (existingPinfl) {
-        throw new AppError('Ushbu PINFL bilan ro\'yxatdan o\'tilgan. Iltimos, boshqa PINFL kiriting.', 409);
-      }
-
-      const passwordHash = await bcrypt.hash(password, 12);
-
-      const user = await prisma.user.create({
-        data: {
-          email,
-          passwordHash,
-          pinfl,
-          passportSeries,
-          role: 'CANDIDATE',
-          isVerified: true,
-          profile: {
-            create: {
-              fullName,
-              birthDate: new Date(birthDate),
-              gender: 'MALE',
-              address: '',
-              educationHistory: [],
-              workHistory: [],
-            },
-          },
-        },
-        include: { profile: true },
-      });
-
-      const { passwordHash: _, ...userWithoutPassword } = user;
-
-      res.status(201).json(successResponse(userWithoutPassword, 'Registration successful'));
-    } catch (error: any) {
-      // Handle Prisma unique constraint violation (race condition)
-      if (error.code === 'P2002') {
-        const field = error.meta?.target?.[0] || 'email';
-        if (field === 'email') {
-          return next(new AppError('Ushbu email bilan ro\'yxatdan o\'tilgan. Iltimos, boshqa email kiriting yoki tizimga kiring.', 409));
-        }
-        return next(new AppError('Ushbu ma\'lumot bazada mavjud. Iltimos, boshqa ma\'lumot kiriting.', 409));
-      }
-      next(error);
-    }
-  },
+    res.json(successResponse(null, 'Logout successful'));
+  }),
 };
 
 export default authController;

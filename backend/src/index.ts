@@ -12,8 +12,7 @@ import matchingRoutes from './routes/matching.routes';
 import aiRoutes from './routes/ai.routes';
 import profileRoutes from './routes/profile.routes';
 
-import { AppError } from './utils/apiResponse';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { errorMiddleware, notFoundHandler } from './errors';
 import { initializeSocket } from './socket/socket';
 
 dotenv.config();
@@ -65,7 +64,7 @@ app.use('/api/profile', profileRoutes);
 app.use(notFoundHandler);
 
 // Global error handler
-app.use(errorHandler);
+app.use(errorMiddleware);
 
 // Start server
 httpServer.listen(PORT, () => {
